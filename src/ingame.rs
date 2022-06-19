@@ -1,4 +1,4 @@
-use crate::{cleanup, game_camera, AppState, player};
+use crate::{cleanup, game_camera, AppState, player, leash};
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridMaterial, InfiniteGridPlugin};
 use bevy::prelude::*;
 
@@ -34,6 +34,21 @@ fn setup(
         material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
+    })
+    .insert(leash::PathOrigin)
+    .with_children(|from| {
+        // Spawn a visual indicator for the path direction
+        from.spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            material: materials.add(StandardMaterial {
+                unlit: true,
+                base_color: Color::RED,
+                ..Default::default()
+            }),
+            transform: Transform::from_scale(Vec3::ZERO),
+            ..Default::default()
+        })
+        .insert(leash::PathPointer);
     })
     .insert_bundle(player::PlayerBundle::default());
 
