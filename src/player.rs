@@ -12,7 +12,7 @@ impl Plugin for PlayerPlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(handle_input.label("input"))
-                    .with_system(move_player.after("input")),
+                    .with_system(move_player.label("move_player").after("input")),
             );
     }
 }

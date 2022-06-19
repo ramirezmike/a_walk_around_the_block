@@ -1,6 +1,7 @@
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
+use crate::player;
 
 #[derive(Component)]
 pub struct PanOrbitCamera {
@@ -15,6 +16,18 @@ impl Default for PanOrbitCamera {
             focus: Vec3::ZERO,
             radius: 5.0,
             upside_down: false,
+        }
+    }
+}
+
+pub fn follow_player(
+    mut cameras: Query<&mut Transform, (With<OrthographicProjection>, Without<player::Player>)>,
+    players: Query<&Transform, (With<player::Player>, Without<OrthographicProjection>)>,
+) {
+    for mut camera_transform in cameras.iter_mut() {
+        for player_transform in players.iter() {
+            camera_transform.translation.x = player_transform.translation.x - 5.0;
+            camera_transform.translation.z = player_transform.translation.z + 5.0;
         }
     }
 }

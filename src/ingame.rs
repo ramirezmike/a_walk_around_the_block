@@ -13,7 +13,7 @@ impl Plugin for InGamePlugin {
         .add_plugin(InfiniteGridPlugin)
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
-                .with_system(game_camera::pan_orbit_camera)
+                .with_system(game_camera::follow_player.after("move_player"))
         );
     }
 }
