@@ -430,6 +430,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_infinite_grid"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53c532bbd98a22416a44876bb032accccae3882ff7f6fd1cd9ac762bf90d1f34"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_input"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2500,6 +2509,7 @@ name = "pet_wants"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_infinite_grid",
  "bevy_kira_audio",
  "leafwing-input-manager",
  "noise",
