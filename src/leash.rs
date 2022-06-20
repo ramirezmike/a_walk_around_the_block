@@ -19,8 +19,9 @@ impl Plugin for LeashPlugin {
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_anchors.label("update_anchors"))
                     .with_system(handle_update_anchor_event.after("update_anchors"))
+                    .with_system(handle_remove_anchor.after("update_anchors"))
                     .with_system(handle_create_anchor.after("update_anchors"))
-                    .with_system(handle_remove_anchor.after("update_anchors")),
+                    //.with_system(print_anchors)
             );
     }
 }
@@ -64,7 +65,7 @@ fn setup(
         .insert(PathObstaclePoint);
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct Anchor {
     pub parent: Option<Entity>,
     pub leash: Option<Entity>,
@@ -208,6 +209,8 @@ fn update_anchors(
                                 */
                                 new_anchor_was_created = true;
                                 closest_hit = hit_distance;
+
+                                break; // only create one anchor at a time
                             }
                         }
                     }
@@ -277,8 +280,16 @@ fn handle_remove_anchor(
             child_anchor.parent = Some(event.new_parent);
         }
         commands.entity(event.parent).despawn_recursive();
-        //println!("anchor removed");
     }
+}
+
+fn print_anchors(
+    anchors: Query<(Entity, &Anchor, &Transform)>,
+) {
+    for (e, a, t) in anchors.iter() {
+        println!("{:?} A: {:?} T: {} {}", e, a.parent, t.translation.x, t.translation.z);
+    }
+    println!("");
 }
 
 fn handle_create_anchor(
@@ -289,34 +300,35 @@ fn handle_create_anchor(
     mut anchors: Query<&mut Anchor>,
 ) {
     for event in create_anchor_event_reader.iter() {
-        //println!("anchor created");
-        let leash = commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::default())),
-                material: materials.add(StandardMaterial {
-                    unlit: true,
-                    base_color: Color::RED,
-                    ..Default::default()
-                }),
-                transform: Transform::from_scale(Vec3::ZERO),
-                ..Default::default()
-            })
-            .insert(Leash)
-            .id();
-
-        let new_anchor = commands
-            .spawn_bundle(PbrBundle {
-                transform: Transform::from_translation(event.position),
-                ..Default::default()
-            })
-            .push_children(&[leash])
-            .insert(Anchor {
-                parent: Some(event.parent),
-                leash: Some(leash),
-            })
-            .id();
-
+        // check if parent exists?
         if let Ok(mut child_anchor) = anchors.get_mut(event.child) {
+            //println!("anchor created");
+            let leash = commands
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Box::default())),
+                    material: materials.add(StandardMaterial {
+                        unlit: true,
+                        base_color: Color::RED,
+                        ..Default::default()
+                    }),
+                    transform: Transform::from_scale(Vec3::ZERO),
+                    ..Default::default()
+                })
+                .insert(Leash)
+                .id();
+
+            let new_anchor = commands
+                .spawn_bundle(PbrBundle {
+                    transform: Transform::from_translation(event.position),
+                    ..Default::default()
+                })
+                .push_children(&[leash])
+                .insert(Anchor {
+                    parent: Some(event.parent),
+                    leash: Some(leash),
+                })
+                .id();
+
             child_anchor.parent = Some(new_anchor);
         }
     }

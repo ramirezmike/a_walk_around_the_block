@@ -39,17 +39,14 @@ fn add_components(
     }
 
     for (entity, aabb, global_transform, name, mut visibility) in items.iter_mut() {
-        let matrix = global_transform.compute_matrix();
-
         if name.as_str().contains("collidable") {
+            let matrix = global_transform.compute_matrix();
             commands.entity(entity).insert(collision::Collidable {
                 aabb: collision::WorldAabb {
                     min: matrix.transform_point3(aabb.min().into()),
                     max: matrix.transform_point3(aabb.max().into()),
                 },
             });
-
-            println!("added... {:?} {:?}", matrix.transform_point3(aabb.min().into()), matrix.transform_point3(aabb.max().into()));
         }
     }
 
