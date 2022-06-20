@@ -1,4 +1,4 @@
-use crate::{cleanup, game_camera, leash, player, AppState};
+use crate::{cleanup, game_camera, leash, player, AppState, collision, component_adder};
 use bevy::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridMaterial, InfiniteGridPlugin};
 
@@ -23,6 +23,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut grid_materials: ResMut<Assets<InfiniteGridMaterial>>,
+    mut component_adder: ResMut<component_adder::ComponentAdder>,
 ) {
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -86,6 +87,7 @@ fn setup(
                     transform: Transform::from_xyz(x as f32 * spacing, 0.0, z as f32 * spacing),
                     ..Default::default()
                 })
+                .insert(Name::new(format!("collidable_{}_{}", x, z)))
                 .insert(leash::PathObstacle);
         }
     }
@@ -93,4 +95,6 @@ fn setup(
     commands.spawn_bundle(InfiniteGridBundle::new(
         grid_materials.add(InfiniteGridMaterial::default()),
     ));
+
+    component_adder.reset();
 }

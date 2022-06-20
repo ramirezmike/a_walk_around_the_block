@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+mod collision;
+mod component_adder;
 mod direction;
 mod game_camera;
 mod ingame;
@@ -11,6 +13,7 @@ mod player;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(component_adder::ComponentAdderPlugin)
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)

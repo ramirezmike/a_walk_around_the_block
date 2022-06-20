@@ -1,4 +1,4 @@
-use crate::{direction, AppState};
+use crate::{direction, AppState, leash, collision};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
@@ -41,7 +41,7 @@ fn move_player(
     time: Res<Time>,
     mut players: Query<(Entity, &mut Transform, &mut Player)>,
     mut player_move_event_reader: EventReader<PlayerMoveEvent>,
-    //    collidables: collision::Collidables,
+    collidables: collision::Collidables,
 ) {
     let mut move_events = HashMap::new();
     for move_event in player_move_event_reader.iter() {
@@ -55,18 +55,26 @@ fn move_player(
 
         player.velocity *= friction.powf(time.delta_seconds());
         if let Some(move_event) = move_events.get(&entity) {
-            let acceleration = Vec3::from(move_event.direction);
-            player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
+            match move_event.movement {
+                Movement::Normal(direction) => {
+                    let acceleration = Vec3::from(direction);
+                    player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
+                },
+                Movement::Pull(direction) => {
+                    let acceleration = direction;
+                    player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
+                }
+            }
         }
 
         player.velocity = player.velocity.clamp_length_max(speed);
 
         let mut new_translation = transform.translation + (player.velocity * time.delta_seconds());
-        //      collidables.fit_in(
-        //          &transform.translation,
-        //          &mut new_translation,
-        //          &mut player.velocity,
-        //      );
+        collidables.fit_in(
+            &transform.translation,
+            &mut new_translation,
+            &mut player.velocity,
+        );
 
         let angle = (-(new_translation.z - transform.translation.z))
             .atan2(new_translation.x - transform.translation.x);
@@ -233,12 +241,18 @@ impl PlayerBundle {
 
 pub struct PlayerMoveEvent {
     pub entity: Entity,
-    pub direction: direction::Direction,
+    pub movement: Movement,
+}
+
+pub enum Movement {
+    Normal(direction::Direction),
+    Pull(Vec3),
 }
 
 fn handle_input(
     mut app_state: ResMut<State<AppState>>,
     player: Query<(Entity, &ActionState<PlayerAction>, &Transform), With<Player>>,
+    anchors: Query<(&Transform, &leash::Anchor)>,
     mut player_move_event_writer: EventWriter<PlayerMoveEvent>,
 ) {
     for (entity, action_state, transform) in player.iter() {
@@ -251,7 +265,7 @@ fn handle_input(
         }
 
         if direction != direction::Direction::NEUTRAL {
-            player_move_event_writer.send(PlayerMoveEvent { entity, direction });
+            player_move_event_writer.send(PlayerMoveEvent { entity, movement: Movement::Normal(direction) });
         }
 
         if action_state.just_pressed(PlayerAction::Pause) {
@@ -260,7 +274,16 @@ fn handle_input(
 
         if action_state.just_pressed(PlayerAction::ActionUp) {}
 
-        if action_state.just_pressed(PlayerAction::ActionDown) {}
+        if action_state.pressed(PlayerAction::ActionDown) {
+            for (anchor_transform, anchor) in anchors.iter() {
+                if let Some(parent) = anchor.parent {
+                    if parent == entity {
+                        let pull_direction = anchor_transform.translation - transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent { entity, movement: Movement::Pull(pull_direction) });
+                    }
+                }
+            }
+        }
 
         if action_state.just_pressed(PlayerAction::ActionLeft) {}
 
