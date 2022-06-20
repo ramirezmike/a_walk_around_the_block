@@ -134,8 +134,8 @@ fn update_anchors(
         if let Some((_, parent_transform, parent_anchor)) = child_anchor.parent.and_then(|e| anchors.get(e).ok()) {
             let parent_entity = child_anchor.parent.unwrap();
             if let Some(mut leash) = child_anchor.leash.and_then(|e| leashes.get_mut(e).ok()) {
-                let from = child_transform.translation;
-                let to = parent_transform.translation;
+                let from = parent_transform.translation;
+                let to = child_transform.translation;
                 let ray_direction = (to - from).normalize();
 
                 let ray = Ray3d::new(from, ray_direction);
@@ -262,7 +262,7 @@ fn update_anchors(
                 // these should be in another function
                 update_anchor_event_writer.send(UpdateAnchorEvent {
                     anchor: child_entity,
-                    ray_direction: ray_direction
+                    ray_direction: -ray_direction
                 });
 
                 leash.scale = Vec3::new(closest_hit / 2.0, 0.05, 0.05);
