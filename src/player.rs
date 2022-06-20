@@ -1,8 +1,8 @@
+use crate::{direction, AppState};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
-use crate::{direction, AppState};
 
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
@@ -41,7 +41,7 @@ fn move_player(
     time: Res<Time>,
     mut players: Query<(Entity, &mut Transform, &mut Player)>,
     mut player_move_event_reader: EventReader<PlayerMoveEvent>,
-//    collidables: collision::Collidables,
+    //    collidables: collision::Collidables,
 ) {
     let mut move_events = HashMap::new();
     for move_event in player_move_event_reader.iter() {
@@ -62,11 +62,11 @@ fn move_player(
         player.velocity = player.velocity.clamp_length_max(speed);
 
         let mut new_translation = transform.translation + (player.velocity * time.delta_seconds());
-//      collidables.fit_in(
-//          &transform.translation,
-//          &mut new_translation,
-//          &mut player.velocity,
-//      );
+        //      collidables.fit_in(
+        //          &transform.translation,
+        //          &mut new_translation,
+        //          &mut player.velocity,
+        //      );
 
         let angle = (-(new_translation.z - transform.translation.z))
             .atan2(new_translation.x - transform.translation.x);
@@ -258,16 +258,12 @@ fn handle_input(
             app_state.push(AppState::Pause).unwrap();
         }
 
-        if action_state.just_pressed(PlayerAction::ActionUp) {
-        }
+        if action_state.just_pressed(PlayerAction::ActionUp) {}
 
-        if action_state.just_pressed(PlayerAction::ActionDown) {
-        }
+        if action_state.just_pressed(PlayerAction::ActionDown) {}
 
-        if action_state.just_pressed(PlayerAction::ActionLeft) {
-        }
+        if action_state.just_pressed(PlayerAction::ActionLeft) {}
 
-        if action_state.just_pressed(PlayerAction::ActionRight) {
-        }
+        if action_state.just_pressed(PlayerAction::ActionRight) {}
     }
 }

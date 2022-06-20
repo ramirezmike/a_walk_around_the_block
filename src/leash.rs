@@ -1,20 +1,17 @@
+use crate::AppState;
 use bevy::prelude::*;
-use std::f32::consts::FRAC_PI_2;
-use std::cmp::Ordering;
-use crate::{AppState};
+use bevy::render::primitives::Aabb;
 use bevy_mod_raycast::{
     ray_intersection_over_mesh, Backfaces, DefaultPluginState, DefaultRaycastingPlugin, Ray3d,
     RayCastMesh, RayCastMethod, RayCastSource, RaycastSystem,
 };
-use bevy::render::primitives::Aabb;
+use std::cmp::Ordering;
+use std::f32::consts::FRAC_PI_2;
 
 pub struct LeashPlugin;
 impl Plugin for LeashPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-                SystemSet::on_enter(AppState::InGame)
-                    .with_system(setup)
-            )
+        app.add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup))
             .add_event::<UpdateAnchorEvent>()
             .add_event::<CreateAnchorEvent>()
             .add_event::<RemoveAnchorEvent>()
@@ -23,7 +20,7 @@ impl Plugin for LeashPlugin {
                     .with_system(update_anchors.label("update_anchors"))
                     .with_system(handle_update_anchor_event.after("update_anchors"))
                     .with_system(handle_create_anchor.after("update_anchors"))
-                    .with_system(handle_remove_anchor.after("update_anchors"))
+                    .with_system(handle_remove_anchor.after("update_anchors")),
             );
     }
 }
@@ -69,13 +66,13 @@ fn setup(
 
 #[derive(Component, Clone, Copy)]
 pub struct Anchor {
-    pub parent: Option::<Entity>,
-    pub leash: Option::<Entity>
+    pub parent: Option<Entity>,
+    pub leash: Option<Entity>,
 }
 
 struct UpdateAnchorEvent {
     anchor: Entity,
-    ray_direction: Vec3
+    ray_direction: Vec3,
 }
 
 fn handle_update_anchor_event(
@@ -103,35 +100,36 @@ struct CreateAnchorEvent {
 }
 
 struct RemoveAnchorEvent {
-    parent: Entity, 
+    parent: Entity,
     new_parent: Entity,
-    child: Entity
+    child: Entity,
 }
 
 fn update_anchors(
     anchors: Query<(Entity, &Transform, &Anchor), Without<Leash>>,
-    obstacles: Query<(&Handle<Mesh>, &Transform, &Aabb, &GlobalTransform), (With<PathObstacle>, Without<Leash>)>,
+    obstacles: Query<
+        (&Handle<Mesh>, &Transform, &Aabb, &GlobalTransform),
+        (With<PathObstacle>, Without<Leash>),
+    >,
     mut leashes: Query<&mut Transform, With<Leash>>,
     mut update_anchor_event_writer: EventWriter<UpdateAnchorEvent>,
     mut create_anchor_event_writer: EventWriter<CreateAnchorEvent>,
     mut remove_anchor_event_writer: EventWriter<RemoveAnchorEvent>,
     meshes: Res<Assets<Mesh>>,
 ) {
-
     /*
-       if an obstacle is detected, throw an event to spawn a new anchor with the parent and the child
-       need to make the new anchor point to the parent and make the child point to the new anchor
+        if an obstacle is detected, throw an event to spawn a new anchor with the parent and the child
+        need to make the new anchor point to the parent and make the child point to the new anchor
 
-       after we handle that, check if any child can see their grand parent
-       if so, throw an event to remove the parent
-       need to set the child to point to the grand parent
-
-       maybe make these alternate per frame?
-
-   */
+        after we handle that, check if any child can see their grand parent
+        if so, throw an event to remove the parent
+        need to set the child to point to the grand parent
+    */
 
     for (child_entity, child_transform, child_anchor) in anchors.iter() {
-        if let Some((_, parent_transform, parent_anchor)) = child_anchor.parent.and_then(|e| anchors.get(e).ok()) {
+        if let Some((_, parent_transform, parent_anchor)) =
+            child_anchor.parent.and_then(|e| anchors.get(e).ok())
+        {
             let parent_entity = child_anchor.parent.unwrap();
             if let Some(mut leash) = child_anchor.leash.and_then(|e| leashes.get_mut(e).ok()) {
                 let from = parent_transform.translation;
@@ -148,70 +146,66 @@ fn update_anchors(
                         let mesh_to_world = transform.compute_matrix();
 
                         // Check for intersection with this obstacle
-                        if let Some(intersection) = ray_intersection_over_mesh(
-                            mesh,
-                            &mesh_to_world,
-                            &ray,
-                            Backfaces::Cull,
-                        ) {
-                            // There was an intersection, check if it is before the cursor
-                            // on the ray
+                        if let Some(intersection) =
+                            ray_intersection_over_mesh(mesh, &mesh_to_world, &ray, Backfaces::Cull)
+                        {
                             let hit_distance = intersection.distance();
                             let cursor_distance = from.distance(to);
                             if hit_distance < cursor_distance && hit_distance < closest_hit {
-                                
-                                let matrix = global_transform.compute_matrix();
-
-                                println!("******");
-                                println!("Min: {:?}", matrix.transform_point3(aabb.min().into()));
-                                println!("Max: {:?}", matrix.transform_point3(aabb.max().into()));
-                                println!("Scale: {:?}", global_transform.scale);
-
                                 let mut cloned_global_transform = global_transform.clone();
-                                cloned_global_transform.scale *= 1.01; 
+                                cloned_global_transform.scale *= 1.01;
                                 let matrix = cloned_global_transform.compute_matrix();
 
+                                /*
                                 println!("-----");
                                 println!("Min: {:?}", matrix.transform_point3(aabb.min().into()));
                                 println!("Max: {:?}", matrix.transform_point3(aabb.max().into()));
                                 println!("Scale: {:?}", global_transform.scale);
+                                */
 
                                 let intersection_point = intersection.position();
                                 let min = matrix.transform_point3(aabb.min().into());
                                 let max = matrix.transform_point3(aabb.max().into());
-                                let mut points: Vec::<(f32, Vec3)> = vec!(
+                                let mut points: Vec<(f32, Vec3)> = vec![
                                     Vec3::new(min.x, 0.0, min.z),
                                     Vec3::new(max.x, 0.0, min.z),
                                     Vec3::new(min.x, 0.0, max.z),
                                     Vec3::new(max.x, 0.0, max.z),
-                                ).into_iter()
-                                 .map(|p| (p.distance(intersection_point), p))
-                                 .collect::<Vec::<_>>();
+                                ]
+                                .into_iter()
+                                .map(|p| (p.distance(intersection_point), p))
+                                .collect::<Vec<_>>();
 
+                                /*
                                 for i in points.iter() {
                                     println!("D: {:?} P: {:?}", i.0, i.1);
                                 }
+                                */
 
-                                points.sort_by(|(distance_a, _), (distance_b, _)| 
-                                               distance_a.partial_cmp(distance_b).unwrap_or(Ordering::Equal));
+                                points.sort_by(|(distance_a, _), (distance_b, _)| {
+                                    distance_a
+                                        .partial_cmp(distance_b)
+                                        .unwrap_or(Ordering::Equal)
+                                });
                                 let anchor_point = points[0].1;
-                                println!("Anchor pt: {:?}", anchor_point);
-                                println!("Child pt: {:?}", child_transform.translation);
+                                //println!("Anchor pt: {:?}", anchor_point);
+                                //println!("Child pt: {:?}", child_transform.translation);
 
                                 if anchor_point == child_transform.translation {
-                                    println!("AHHH");
                                     continue;
                                 }
 
                                 create_anchor_event_writer.send(CreateAnchorEvent {
-                                    parent: parent_entity, 
+                                    parent: parent_entity,
                                     position: anchor_point,
-                                    child: child_entity
+                                    child: child_entity,
                                 });
+                                /*
                                 println!("I: {:?}", intersection.position());
                                 println!("C: {:?}", child_transform.translation);
                                 println!("P: {:?}", parent_transform.translation);
                                 println!("");
+                                */
                                 new_anchor_was_created = true;
                                 closest_hit = hit_distance;
                             }
@@ -220,7 +214,9 @@ fn update_anchors(
                 }
 
                 if !new_anchor_was_created {
-                    if let Some((_, grand_parent_transform, grand_parent_anchor)) = parent_anchor.parent.and_then(|e| anchors.get(e).ok()) {
+                    if let Some((_, grand_parent_transform, grand_parent_anchor)) =
+                        parent_anchor.parent.and_then(|e| anchors.get(e).ok())
+                    {
                         let grand_parent_entity = parent_anchor.parent.unwrap();
                         let from = child_transform.translation;
                         let to = grand_parent_transform.translation;
@@ -250,19 +246,18 @@ fn update_anchors(
 
                         if !obstacle_exists {
                             remove_anchor_event_writer.send(RemoveAnchorEvent {
-                                parent: parent_entity, 
+                                parent: parent_entity,
                                 new_parent: grand_parent_entity,
-                                child: child_entity
+                                child: child_entity,
                             });
                         }
                     }
                 }
 
-
                 // these should be in another function
                 update_anchor_event_writer.send(UpdateAnchorEvent {
                     anchor: child_entity,
-                    ray_direction: -ray_direction
+                    ray_direction: -ray_direction,
                 });
 
                 leash.scale = Vec3::new(closest_hit / 2.0, 0.05, 0.05);
@@ -282,7 +277,7 @@ fn handle_remove_anchor(
             child_anchor.parent = Some(event.new_parent);
         }
         commands.entity(event.parent).despawn_recursive();
-        println!("anchor removed");
+        //println!("anchor removed");
     }
 }
 
@@ -294,8 +289,9 @@ fn handle_create_anchor(
     mut anchors: Query<&mut Anchor>,
 ) {
     for event in create_anchor_event_reader.iter() {
-        println!("anchor created");
-        let leash = commands.spawn_bundle(PbrBundle {
+        //println!("anchor created");
+        let leash = commands
+            .spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Box::default())),
                 material: materials.add(StandardMaterial {
                     unlit: true,
@@ -308,17 +304,17 @@ fn handle_create_anchor(
             .insert(Leash)
             .id();
 
-        let new_anchor = 
-        commands
+        let new_anchor = commands
             .spawn_bundle(PbrBundle {
                 transform: Transform::from_translation(event.position),
                 ..Default::default()
             })
-        .push_children(&[leash])
-        .insert(Anchor {
-            parent: Some(event.parent),
-            leash: Some(leash),
-        }).id();
+            .push_children(&[leash])
+            .insert(Anchor {
+                parent: Some(event.parent),
+                leash: Some(leash),
+            })
+            .id();
 
         if let Ok(mut child_anchor) = anchors.get_mut(event.child) {
             child_anchor.parent = Some(new_anchor);

@@ -1,7 +1,7 @@
+use crate::player;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
-use crate::player;
 
 #[derive(Component)]
 pub struct PanOrbitCamera {
@@ -100,14 +100,14 @@ pub fn pan_orbit_camera(
         } else if pan.length_squared() > 0.0 {
             any = true;
             // make panning distance independent of resolution and FOV,
-//          let window = get_primary_window_size(&windows);
-//          pan *= Vec2::new(projection.fov * projection.aspect_ratio, projection.fov) / window;
-//          // translate by local axes
-//          let right = transform.rotation * Vec3::X * -pan.x;
-//          let up = transform.rotation * Vec3::Y * pan.y;
-//          // make panning proportional to distance away from focus point
-//          let translation = (right + up) * pan_orbit.radius;
-//          pan_orbit.focus += translation;
+            //          let window = get_primary_window_size(&windows);
+            //          pan *= Vec2::new(projection.fov * projection.aspect_ratio, projection.fov) / window;
+            //          // translate by local axes
+            //          let right = transform.rotation * Vec3::X * -pan.x;
+            //          let up = transform.rotation * Vec3::Y * pan.y;
+            //          // make panning proportional to distance away from focus point
+            //          let translation = (right + up) * pan_orbit.radius;
+            //          pan_orbit.focus += translation;
         } else if scroll.abs() > 0.0 {
             any = true;
             pan_orbit.radius -= scroll * pan_orbit.radius * 0.2;
@@ -139,9 +139,8 @@ pub fn spawn_camera(mut commands: Commands) {
     camera.orthographic_projection.scale = 6.0;
     camera.transform = Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y);
 
-    commands.spawn_bundle(camera)
-        .insert(PanOrbitCamera {
-            radius,
-            ..Default::default()
-        });
+    commands.spawn_bundle(camera).insert(PanOrbitCamera {
+        radius,
+        ..Default::default()
+    });
 }
