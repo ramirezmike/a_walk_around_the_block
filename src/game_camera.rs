@@ -136,11 +136,38 @@ pub fn spawn_camera(mut commands: Commands) {
 
     let radius = translation.length();
     let mut camera = OrthographicCameraBundle::new_3d();
-    camera.orthographic_projection.scale = 6.0;
-    camera.transform = Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y);
+    camera.orthographic_projection.scale = 10.0;
+    camera.orthographic_projection.near = -100.0;
+    camera.transform = Transform::from_xyz(-6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y);
 
     commands.spawn_bundle(camera).insert(PanOrbitCamera {
         radius,
         ..Default::default()
-    });
+    })
+        .with_children(|parent| {
+            const HALF_SIZE: f32 = 100.0;
+            parent.spawn_bundle(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    // Configure the projection to better fit the scene
+                    illuminance: 10000.0,
+                    shadow_projection: OrthographicProjection {
+                        left: -HALF_SIZE,
+                        right: HALF_SIZE,
+                        bottom: -HALF_SIZE,
+                        top: HALF_SIZE,
+                        near: -10.0 * HALF_SIZE,
+                        far: 10.0 * HALF_SIZE,
+                        ..Default::default()
+                    },
+                    shadows_enabled: true,
+                    ..Default::default()
+                },
+                transform: Transform {
+                    rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+        })
+    ;
 }

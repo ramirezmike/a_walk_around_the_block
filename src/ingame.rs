@@ -1,5 +1,6 @@
-use crate::{cleanup, game_camera, leash, player, AppState, collision, component_adder};
+use crate::{cleanup, game_camera, leash, player, AppState, collision, component_adder, asset_loading, assets::GameAssets};
 use bevy::prelude::*;
+use bevy::gltf::Gltf;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridMaterial, InfiniteGridPlugin};
 
 pub struct InGamePlugin;
@@ -18,8 +19,19 @@ impl Plugin for InGamePlugin {
     }
 }
 
+pub fn load(
+    assets_handler: &mut asset_loading::AssetsHandler,
+    game_assets: &mut ResMut<GameAssets>,
+) {
+    assets_handler.add_glb(&mut game_assets.chicken, "models/chicken.glb");
+    assets_handler.add_glb(&mut game_assets.chunk, "models/chunk.glb");
+}
+
 fn setup(
     mut commands: Commands,
+    game_assets: Res<GameAssets>,
+    asset_server: Res<AssetServer>,
+    assets_gltf: Res<Assets<Gltf>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut grid_materials: ResMut<Assets<InfiniteGridMaterial>>,
@@ -30,71 +42,96 @@ fn setup(
         brightness: 0.50,
     });
 
-    let mut player = commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
-    let player_id = player.id();
-    player
-        .insert(leash::Anchor {
-            parent: None,
-            leash: None,
-        })
-        .insert_bundle(player::PlayerBundle::default());
-
-    let leash = commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
-            material: materials.add(StandardMaterial {
-                unlit: true,
-                base_color: Color::RED,
-                ..Default::default()
-            }),
-            transform: Transform::from_scale(Vec3::ZERO),
-            ..Default::default()
-        })
-        .insert(leash::Leash)
-        .id();
-
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube::default())),
-            material: materials.add(Color::GREEN.into()),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        .push_children(&[leash])
-        .insert(leash::Anchor {
-            parent: Some(player_id),
-            leash: Some(leash),
-        });
-
-    let size = 2.0;
-    let spacing = 6.0;
-
-    // Spawn obstacles
-    for x in -2..=2 {
-        for z in -2..=2 {
-            if x as f32 * spacing == 0.0 && z as f32 * spacing == 0.0 {
-                continue;
-            }
-            commands
-                .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube::new(size))),
-                    material: materials.add(Color::BLACK.into()),
-                    transform: Transform::from_xyz(x as f32 * spacing, 0.0, z as f32 * spacing),
-                    ..Default::default()
-                })
-                .insert(Name::new(format!("collidable_{}_{}", x, z)))
-                .insert(leash::PathObstacle);
-        }
+    if let Some(gltf) = assets_gltf.get(&game_assets.chunk) {
+        commands
+            .spawn_bundle((
+                Transform::from_xyz(0.0, -0.5, 0.0),
+                GlobalTransform::identity(),
+            ))
+            .with_children(|parent| {
+                parent.spawn_scene(gltf.scenes[0].clone());
+            });
     }
 
-    commands.spawn_bundle(InfiniteGridBundle::new(
-        grid_materials.add(InfiniteGridMaterial::default()),
-    ));
+    if let Some(gltf) = assets_gltf.get(&game_assets.chicken) {
+        let mut player = commands.spawn_bundle((
+                Transform::from_xyz(0.0, 0.0, 0.0),
+                GlobalTransform::identity(),
+            ));
+
+        player
+            .with_children(|parent| {
+                parent
+                    .spawn_bundle((
+                        Transform::from_rotation(Quat::from_rotation_y(
+                            std::f32::consts::FRAC_PI_2,
+                        )),
+                        GlobalTransform::identity(),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn_scene(asset_server.load("models/chicken.glb#Scene0"));
+                    });
+            });
+        let player_id = player.id();
+        player
+            .insert(leash::Anchor {
+                parent: None,
+                leash: None,
+            })
+            .insert_bundle(player::PlayerBundle::default());
+
+        let leash = commands
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box::default())),
+                material: materials.add(StandardMaterial {
+                    unlit: true,
+                    base_color: Color::RED,
+                    ..Default::default()
+                }),
+                transform: Transform::from_scale(Vec3::ZERO),
+                ..Default::default()
+            })
+            .insert(leash::Leash)
+            .id();
+
+        commands
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube::default())),
+                material: materials.add(Color::GREEN.into()),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                ..Default::default()
+            })
+            .push_children(&[leash])
+            .insert(leash::Anchor {
+                parent: Some(player_id),
+                leash: Some(leash),
+            });
+    }
+
+//  let size = 2.0;
+//  let spacing = 6.0;
+
+//  // Spawn obstacles
+//  for x in -2..=2 {
+//      for z in -2..=2 {
+//          if x as f32 * spacing == 0.0 && z as f32 * spacing == 0.0 {
+//              continue;
+//          }
+//          commands
+//              .spawn_bundle(PbrBundle {
+//                  mesh: meshes.add(Mesh::from(shape::Cube::new(size))),
+//                  material: materials.add(Color::BLACK.into()),
+//                  transform: Transform::from_xyz(x as f32 * spacing, 0.0, z as f32 * spacing),
+//                  ..Default::default()
+//              })
+//              .insert(Name::new(format!("collidable_{}_{}", x, z)))
+//              .insert(leash::PathObstacle);
+//      }
+//  }
+
+//  commands.spawn_bundle(InfiniteGridBundle::new(
+//      grid_materials.add(InfiniteGridMaterial::default()),
+//  ));
 
     component_adder.reset();
 }

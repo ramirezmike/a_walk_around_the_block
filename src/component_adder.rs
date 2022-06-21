@@ -1,4 +1,4 @@
-use crate::collision;
+use crate::{collision, leash};
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
 
@@ -25,7 +25,7 @@ impl ComponentAdder {
 
 fn add_components(
     mut commands: Commands,
-    mut items: Query<(Entity, &Aabb, &GlobalTransform, &Name, &mut Visibility)>,//, With<Parent>>,
+    mut items: Query<(Entity, &Aabb, &GlobalTransform, &Name, &mut Visibility), With<Parent>>,
     mut component_adder: ResMut<ComponentAdder>,
 ) {
     if component_adder.has_added {
@@ -46,7 +46,8 @@ fn add_components(
                     min: matrix.transform_point3(aabb.min().into()),
                     max: matrix.transform_point3(aabb.max().into()),
                 },
-            });
+            })
+            .insert(leash::PathObstacle);
         }
     }
 

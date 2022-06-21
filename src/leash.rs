@@ -21,7 +21,7 @@ impl Plugin for LeashPlugin {
                     .with_system(handle_update_anchor_event.after("update_anchors"))
                     .with_system(handle_remove_anchor.after("update_anchors"))
                     .with_system(handle_create_anchor.after("update_anchors"))
-                    //.with_system(print_anchors)
+//                    .with_system(print_anchors)
             );
     }
 }
@@ -157,12 +157,10 @@ fn update_anchors(
                                 cloned_global_transform.scale *= 1.01;
                                 let matrix = cloned_global_transform.compute_matrix();
 
-                                /*
-                                println!("-----");
-                                println!("Min: {:?}", matrix.transform_point3(aabb.min().into()));
-                                println!("Max: {:?}", matrix.transform_point3(aabb.max().into()));
-                                println!("Scale: {:?}", global_transform.scale);
-                                */
+//                              println!("-----");
+//                              println!("Min: {:?}", matrix.transform_point3(aabb.min().into()));
+//                              println!("Max: {:?}", matrix.transform_point3(aabb.max().into()));
+//                              println!("Scale: {:?}", global_transform.scale);
 
                                 let intersection_point = intersection.position();
                                 let min = matrix.transform_point3(aabb.min().into());
@@ -177,11 +175,9 @@ fn update_anchors(
                                 .map(|p| (p.distance(intersection_point), p))
                                 .collect::<Vec<_>>();
 
-                                /*
-                                for i in points.iter() {
-                                    println!("D: {:?} P: {:?}", i.0, i.1);
-                                }
-                                */
+//                              for i in points.iter() {
+//                                  println!("D: {:?} P: {:?}", i.0, i.1);
+//                              }
 
                                 points.sort_by(|(distance_a, _), (distance_b, _)| {
                                     distance_a
@@ -189,10 +185,12 @@ fn update_anchors(
                                         .unwrap_or(Ordering::Equal)
                                 });
                                 let anchor_point = points[0].1;
-                                //println!("Anchor pt: {:?}", anchor_point);
-                                //println!("Child pt: {:?}", child_transform.translation);
+//                              println!("Anchor pt: {:?}", anchor_point);
+//                              println!("Child pt: {:?}", child_transform.translation);
+//                              println!("I: {:?}", intersection.position());
 
-                                if anchor_point == child_transform.translation {
+                                if anchor_point == child_transform.translation 
+                                || anchor_point == parent_transform.translation {
                                     continue;
                                 }
 
@@ -201,12 +199,11 @@ fn update_anchors(
                                     position: anchor_point,
                                     child: child_entity,
                                 });
-                                /*
-                                println!("I: {:?}", intersection.position());
-                                println!("C: {:?}", child_transform.translation);
-                                println!("P: {:?}", parent_transform.translation);
-                                println!("");
-                                */
+
+//                              println!("C: {:?}", child_transform.translation);
+//                              println!("P: {:?}", parent_transform.translation);
+//                              println!("");
+
                                 new_anchor_was_created = true;
                                 closest_hit = hit_distance;
 
@@ -248,6 +245,7 @@ fn update_anchors(
                         }
 
                         if !obstacle_exists {
+//                          println!("No obstacle so removing... {:?}", parent_entity);
                             remove_anchor_event_writer.send(RemoveAnchorEvent {
                                 parent: parent_entity,
                                 new_parent: grand_parent_entity,
@@ -302,7 +300,7 @@ fn handle_create_anchor(
     for event in create_anchor_event_reader.iter() {
         // check if parent exists?
         if let Ok(mut child_anchor) = anchors.get_mut(event.child) {
-            //println!("anchor created");
+//          println!("anchor created");
             let leash = commands
                 .spawn_bundle(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Box::default())),

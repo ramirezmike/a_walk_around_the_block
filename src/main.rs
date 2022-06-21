@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+mod asset_loading;
+mod assets;
 mod collision;
 mod component_adder;
 mod direction;
@@ -13,11 +15,14 @@ mod player;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(assets::AssetsPlugin)
+        .add_plugin(asset_loading::AssetLoadingPlugin)
         .add_plugin(component_adder::ComponentAdderPlugin)
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
-        .add_state(AppState::InGame)
+        .add_state(AppState::Initial)
+        .add_system_set(SystemSet::on_enter(AppState::Initial).with_system(bootstrap))
         .run();
 }
 
@@ -34,4 +39,11 @@ pub fn cleanup<T: Component>(mut commands: Commands, entities: Query<Entity, Wit
     for entity in entities.iter() {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+fn bootstrap(
+    mut assets_handler: asset_loading::AssetsHandler,
+    mut game_assets: ResMut<assets::GameAssets>,
+) {
+    assets_handler.load(AppState::InGame, &mut game_assets);
 }
