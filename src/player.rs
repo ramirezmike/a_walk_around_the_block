@@ -1,4 +1,4 @@
-use crate::{direction, AppState, leash, collision};
+use crate::{direction, AppState, leash, collision, bot};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
@@ -63,6 +63,10 @@ fn move_player(
                 Movement::Pull(direction) => {
                     let acceleration = direction;
                     player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
+                },
+                Movement::Push(direction) => {
+                    let acceleration = direction;
+                    player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
                 }
             }
         }
@@ -120,7 +124,7 @@ fn move_player(
 }
 
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
-enum PlayerAction {
+pub enum PlayerAction {
     Up,
     Down,
     Left,
@@ -163,7 +167,7 @@ pub struct Player {
 }
 
 impl Player {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut rng = rand::thread_rng();
 
         Player {
@@ -247,11 +251,12 @@ pub struct PlayerMoveEvent {
 pub enum Movement {
     Normal(direction::Direction),
     Pull(Vec3),
+    Push(Vec3),
 }
 
 fn handle_input(
     mut app_state: ResMut<State<AppState>>,
-    player: Query<(Entity, &ActionState<PlayerAction>, &Transform), With<Player>>,
+    player: Query<(Entity, &ActionState<PlayerAction>, &Transform), (With<Player>, Without<bot::Bot>)>,
     anchors: Query<(&Transform, &leash::Anchor)>,
     mut player_move_event_writer: EventWriter<PlayerMoveEvent>,
 ) {

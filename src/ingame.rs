@@ -1,4 +1,4 @@
-use crate::{cleanup, game_camera, leash, player, AppState, collision, component_adder, asset_loading, assets::GameAssets};
+use crate::{cleanup, game_camera, target, bot, leash, player, AppState, collision, component_adder, asset_loading, assets::GameAssets};
 use bevy::prelude::*;
 use bevy::gltf::Gltf;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridMaterial, InfiniteGridPlugin};
@@ -54,24 +54,14 @@ fn setup(
     }
 
     if let Some(gltf) = assets_gltf.get(&game_assets.chicken) {
-        let mut player = commands.spawn_bundle((
-                Transform::from_xyz(0.0, 0.0, 0.0),
-                GlobalTransform::identity(),
-            ));
-
-        player
-            .with_children(|parent| {
-                parent
-                    .spawn_bundle((
-                        Transform::from_rotation(Quat::from_rotation_y(
-                            std::f32::consts::FRAC_PI_2,
-                        )),
-                        GlobalTransform::identity(),
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn_scene(asset_server.load("models/chicken.glb#Scene0"));
-                    });
+        let mut player = 
+            commands.spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube::default())),
+                material: materials.add(Color::GREEN.into()),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                ..Default::default()
             });
+
         let player_id = player.id();
         player
             .insert(leash::Anchor {
@@ -94,18 +84,35 @@ fn setup(
             .insert(leash::Leash)
             .id();
 
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube::default())),
-                material: materials.add(Color::GREEN.into()),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                ..Default::default()
+        commands.spawn_bundle((
+                Transform::from_xyz(0.0, 0.0, 0.0),
+                GlobalTransform::identity(),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn_bundle((
+                        Transform::from_rotation(Quat::from_rotation_y(
+                            std::f32::consts::FRAC_PI_2,
+                        )),
+                        GlobalTransform::identity(),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn_scene(asset_server.load("models/chicken.glb#Scene0"));
+                    });
             })
-            .push_children(&[leash])
+            .insert_bundle(bot::BotBundle::new())
             .insert(leash::Anchor {
                 parent: Some(player_id),
                 leash: Some(leash),
             });
+
+
+        commands.spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube::default())),
+            material: materials.add(Color::BLUE.into()),
+            transform: Transform::from_xyz(6.0, 0.0, 6.0),
+            ..Default::default()
+        }).insert(target::Target);
     }
 
 //  let size = 2.0;

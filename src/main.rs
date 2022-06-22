@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 mod asset_loading;
 mod assets;
+mod bot;
 mod collision;
 mod component_adder;
 mod direction;
@@ -11,16 +12,19 @@ mod game_camera;
 mod ingame;
 mod leash;
 mod player;
+mod target;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(assets::AssetsPlugin)
         .add_plugin(asset_loading::AssetLoadingPlugin)
+        .add_plugin(bot::BotPlugin)
         .add_plugin(component_adder::ComponentAdderPlugin)
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
+        .add_plugin(target::TargetPlugin)
         .add_state(AppState::Initial)
         .add_system_set(SystemSet::on_enter(AppState::Initial).with_system(bootstrap))
         .run();
