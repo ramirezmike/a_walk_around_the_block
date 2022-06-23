@@ -1,7 +1,7 @@
 use crate::asset_loading;
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
-//use bevy_kira_audio::AudioSource;
+use bevy_kira_audio::AudioSource;
 
 pub struct AssetsPlugin;
 impl Plugin for AssetsPlugin {
@@ -15,6 +15,10 @@ pub struct GameAssets {
     pub font: Handle<Font>,
     pub chicken: Handle<Gltf>,
     pub chunk: Handle<Gltf>,
+
+    pub pickup: Handle<AudioSource>,
+    pub powerup: Handle<AudioSource>,
+    pub attack: Handle<AudioSource>,
 }
 
 #[derive(Default)]

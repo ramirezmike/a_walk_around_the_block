@@ -28,6 +28,10 @@ pub fn load(
 ) {
     assets_handler.add_glb(&mut game_assets.chicken, "models/chicken.glb");
     assets_handler.add_glb(&mut game_assets.chunk, "models/chunk.glb");
+
+    assets_handler.add_audio(&mut game_assets.pickup, "audio/pickup.wav");
+    assets_handler.add_audio(&mut game_assets.powerup, "audio/powerup.wav");
+    assets_handler.add_audio(&mut game_assets.attack, "audio/attack.wav");
 }
 
 fn setup(

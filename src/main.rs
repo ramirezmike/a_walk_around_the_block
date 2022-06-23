@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+mod audio;
 mod asset_loading;
 mod assets;
 mod bot;
@@ -13,11 +14,13 @@ mod game_state;
 mod ingame;
 mod leash;
 mod player;
+mod pickup;
 mod target;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(audio::GameAudioPlugin)
         .add_plugin(assets::AssetsPlugin)
         .add_plugin(asset_loading::AssetLoadingPlugin)
         .add_plugin(bot::BotPlugin)
@@ -26,6 +29,7 @@ fn main() {
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
+        .add_plugin(pickup::PickupPlugin)
         .add_plugin(target::TargetPlugin)
         .add_state(AppState::Initial)
         .add_system_set(SystemSet::on_enter(AppState::Initial).with_system(bootstrap))

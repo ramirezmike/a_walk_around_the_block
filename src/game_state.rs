@@ -1,4 +1,4 @@
-use crate::{assets::GameAssets, bot, component_adder, player, AppState, CleanupMarker, target};
+use crate::{assets::GameAssets, bot, component_adder, pickup, player, AppState, CleanupMarker, target};
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -26,7 +26,8 @@ impl Plugin for GameStatePlugin {
 
 pub struct GameState {
     pub current_chunk: Vec2,
-    pub yank_strength: f32
+    pub yank_strength: f32,
+    pub score: usize
 }
 
 impl Default for GameState {
@@ -34,6 +35,7 @@ impl Default for GameState {
         GameState {
             current_chunk: Vec2::default(),
             yank_strength: 10.0,
+            score: 0
         }
     }
 }
@@ -65,7 +67,7 @@ struct DespawnChunkEvent {
     chunk_position: Vec2,
 }
 
-fn map_to_chunk(point: Vec3) -> Vec2 {
+pub fn map_to_chunk(point: Vec3) -> Vec2 {
     let x = if point.x >= 0.0 {
         ((point.x as isize) + (CHUNK_SIZE / 2)) / CHUNK_SIZE
     } else {
@@ -204,6 +206,25 @@ fn load_new_chunks(
                             })
                             .insert(CleanupMarker)
                             .insert(target);
+                    }
+
+                    for _ in 0..100 {
+                        let spot = get_random_spot(min_x, max_x, min_z, max_z);
+                        let (target, model) = target::make_random_target();
+                        commands
+                            .spawn_bundle(PbrBundle {
+                                mesh: meshes.add(Mesh::from(shape::Icosphere {
+                                    radius: 0.25,
+                                    subdivisions: 0,
+                                })),
+                                material: materials.add(Color::YELLOW.into()),
+                                transform: Transform::from_xyz(spot.x, 0.0, spot.y),
+                                ..Default::default()
+                            })
+                            .insert(CleanupMarker)
+                            .insert(pickup::Pickup {
+                                pickup_type: pickup::PickupType::Coin
+                            });
                     }
                 }
             });
