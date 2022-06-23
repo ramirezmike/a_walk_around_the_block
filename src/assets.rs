@@ -14,11 +14,18 @@ impl Plugin for AssetsPlugin {
 pub struct GameAssets {
     pub font: Handle<Font>,
     pub chicken: Handle<Gltf>,
+    pub dog: Handle<Gltf>,
+    pub person: Handle<Gltf>,
     pub chunk: Handle<Gltf>,
 
     pub pickup: Handle<AudioSource>,
     pub powerup: Handle<AudioSource>,
     pub attack: Handle<AudioSource>,
+
+    pub green_button: asset_loading::GameTexture,
+    pub red_button: asset_loading::GameTexture,
+    pub blue_button: asset_loading::GameTexture,
+    pub yellow_button: asset_loading::GameTexture,
 }
 
 #[derive(Default)]

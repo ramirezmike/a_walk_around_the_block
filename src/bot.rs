@@ -44,6 +44,7 @@ pub struct Pet {
     pub pet_type: PetType,
 }
 
+#[derive(Copy, Clone)]
 pub enum PetType {
     Chicken,
     Dog,

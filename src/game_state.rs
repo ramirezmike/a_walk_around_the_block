@@ -112,6 +112,7 @@ fn load_new_chunks(
     chunks: Query<(Entity, &Chunk)>,
     asset_server: Res<AssetServer>,
     mut component_adder: ResMut<component_adder::ComponentAdder>,
+    players: Query<&player::Player, Without<bot::Bot>>,
 ) {
     if new_chunk_event_reader.iter().count() > 0 {
         let x = game_state.current_chunk.x;
@@ -208,9 +209,37 @@ fn load_new_chunks(
                             .insert(target);
                     }
 
+                    if let Ok(player) = players.get_single() {
+                        if player.looking_for_pets() {
+                            for _ in 0..10 {
+                                let spot = get_random_spot(min_x, max_x, min_z, max_z);
+                                let (pickup, model) = pickup::make_random_pet();
+
+                                commands
+                                    .spawn_bundle((
+                                        Transform::from_xyz(spot.x, 0.0, spot.y),
+                                        GlobalTransform::identity(),
+                                    ))
+                                    .with_children(|parent| {
+                                        parent
+                                            .spawn_bundle((
+                                                Transform::from_rotation(Quat::from_rotation_y(
+                                                    std::f32::consts::FRAC_PI_2,
+                                                )),
+                                                GlobalTransform::identity(),
+                                            ))
+                                            .with_children(|parent| {
+                                                parent.spawn_scene(asset_server.load(&model));
+                                            });
+                                    })
+                                    .insert(CleanupMarker)
+                                    .insert(pickup);
+                            }
+                        }
+                    }
+
                     for _ in 0..100 {
                         let spot = get_random_spot(min_x, max_x, min_z, max_z);
-                        let (target, model) = target::make_random_target();
                         commands
                             .spawn_bundle(PbrBundle {
                                 mesh: meshes.add(Mesh::from(shape::Icosphere {

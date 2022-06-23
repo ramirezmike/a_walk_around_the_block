@@ -1,4 +1,4 @@
-use crate::player;
+use crate::{player, bot};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
@@ -21,8 +21,8 @@ impl Default for PanOrbitCamera {
 }
 
 pub fn follow_player(
-    mut cameras: Query<&mut Transform, (With<OrthographicProjection>, Without<player::Player>)>,
-    players: Query<&Transform, (With<player::Player>, Without<OrthographicProjection>)>,
+    mut cameras: Query<&mut Transform, (With<OrthographicProjection>, With<PanOrbitCamera>, Without<player::Player>)>,
+    players: Query<&Transform, (With<player::Player>, Without<OrthographicProjection>, Without<bot::Bot>)>,
 ) {
     for mut camera_transform in cameras.iter_mut() {
         for player_transform in players.iter() {

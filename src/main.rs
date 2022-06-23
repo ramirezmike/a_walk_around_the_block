@@ -12,10 +12,13 @@ mod direction;
 mod game_camera;
 mod game_state;
 mod ingame;
+mod ingame_ui;
 mod leash;
+mod menus;
 mod player;
 mod pickup;
 mod target;
+mod ui;
 
 fn main() {
     App::new()
@@ -26,9 +29,12 @@ fn main() {
         .add_plugin(bot::BotPlugin)
         .add_plugin(component_adder::ComponentAdderPlugin)
         .add_plugin(game_state::GameStatePlugin)
+        .add_plugin(ingame_ui::InGameUIPlugin)
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
+        .add_plugin(ui::text_size::TextSizePlugin)
+        //.add_plugin(menus::options::OptionsMenuPlugin)
         .add_plugin(pickup::PickupPlugin)
         .add_plugin(target::TargetPlugin)
         .add_state(AppState::Initial)

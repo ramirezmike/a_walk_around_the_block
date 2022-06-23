@@ -1,4 +1,4 @@
-use crate::{bot, collision, direction, leash, AppState, game_state};
+use crate::{bot, collision, direction, leash, AppState, game_state, ingame_ui};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
@@ -193,6 +193,47 @@ impl Player {
             east_pet: None,
         }
     }
+
+    pub fn add_pet(&mut self, pet: Entity) {
+        if self.south_pet.is_none() {
+            self.south_pet = Some(pet);
+            return;
+        }
+        if self.east_pet.is_none() {
+            self.east_pet = Some(pet);
+            return;
+        }
+        if self.west_pet.is_none() {
+            self.west_pet = Some(pet);
+            return;
+        }
+        if self.north_pet.is_none() {
+            self.north_pet = Some(pet);
+            return;
+        }
+    }
+
+    pub fn get_next_leash_color(&self) -> Color {
+        if self.south_pet.is_none() {
+            Color::GREEN
+        } else if self.east_pet.is_none() {
+            Color::RED
+        } else if self.west_pet.is_none() {
+            Color::BLUE
+        } else {
+            Color::YELLOW
+        }
+    }
+
+    pub fn looking_for_pets(&self) -> bool {
+        self.north_pet.is_none()
+        ||
+        self.south_pet.is_none()
+        ||
+        self.west_pet.is_none()
+        ||
+        self.east_pet.is_none()
+    }
 }
 
 #[derive(Bundle)]
@@ -275,9 +316,11 @@ fn handle_input(
     pets: Query<(&Transform, &leash::Anchor), With<bot::Pet>>,
     game_state: Res<game_state::GameState>,
     mut player_move_event_writer: EventWriter<PlayerMoveEvent>,
+    mut button_pressed_event_writer: EventWriter<ingame_ui::ButtonPressedEvent>,
+    mut button_hold_event_writer: EventWriter<ingame_ui::ButtonHoldEvent>,
 ) {
     for (entity, action_state, transform, player) in players.iter() {
-        //        println!("T: {:?}", transform.translation);
+        //println!("T: {:?}", transform.translation);
         let mut direction = direction::Direction::NEUTRAL;
 
         for input_direction in PlayerAction::DIRECTIONS {
@@ -297,17 +340,13 @@ fn handle_input(
             app_state.push(AppState::Pause).unwrap();
         }
 
-        if action_state.just_pressed(PlayerAction::ActionUp) {}
-
-
-        if action_state.just_pressed(PlayerAction::ActionDown) {
-            if let Some(pet) = player.south_pet {
+        if action_state.just_pressed(PlayerAction::ActionUp) {
+            if let Some(pet) = player.north_pet {
                 let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
                 if let Some(pet_parent) = pet_anchor.parent {
                     if let Ok(anchor_transform) = anchors.get(pet_parent) {
                         let pull_direction =
                             anchor_transform.translation - pet_transform.translation;
-                        println!("Yanking {}", game_state.yank_strength);
                         player_move_event_writer.send(PlayerMoveEvent {
                             entity: pet,
                             movement: Movement::Yank(pull_direction, game_state.yank_strength),
@@ -315,14 +354,16 @@ fn handle_input(
                     }
                 }
             }
-        }
 
-        if action_state.pressed(PlayerAction::ActionDown) {
-            if let Some(pet) = player.south_pet {
+            button_pressed_event_writer.send(ingame_ui::ButtonPressedEvent {
+                button_type: ingame_ui::LeashButtonType::Yellow
+            });
+        }
+        if action_state.pressed(PlayerAction::ActionUp) {
+            if let Some(pet) = player.north_pet {
                 let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
                 if let Some(pet_parent) = pet_anchor.parent {
                     if let Ok(anchor_transform) = anchors.get(pet_parent) {
-                        println!("pulling");
                         let pull_direction =
                             anchor_transform.translation - pet_transform.translation;
                         player_move_event_writer.send(PlayerMoveEvent {
@@ -332,10 +373,130 @@ fn handle_input(
                     }
                 }
             }
+
+            button_hold_event_writer.send(ingame_ui::ButtonHoldEvent {
+                button_type: ingame_ui::LeashButtonType::Yellow
+            });
         }
 
-        if action_state.just_pressed(PlayerAction::ActionLeft) {}
+        if action_state.just_pressed(PlayerAction::ActionDown) {
+            if let Some(pet) = player.south_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Yank(pull_direction, game_state.yank_strength),
+                        });
+                    }
+                }
+            }
 
-        if action_state.just_pressed(PlayerAction::ActionRight) {}
+            button_pressed_event_writer.send(ingame_ui::ButtonPressedEvent {
+                button_type: ingame_ui::LeashButtonType::Green
+            });
+        }
+
+        if action_state.pressed(PlayerAction::ActionDown) {
+            if let Some(pet) = player.south_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Pull(pull_direction),
+                        });
+                    }
+                }
+            }
+
+            button_hold_event_writer.send(ingame_ui::ButtonHoldEvent {
+                button_type: ingame_ui::LeashButtonType::Green
+            });
+        }
+
+        if action_state.just_pressed(PlayerAction::ActionLeft) {
+            if let Some(pet) = player.west_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Yank(pull_direction, game_state.yank_strength),
+                        });
+                    }
+                }
+            }
+
+            button_pressed_event_writer.send(ingame_ui::ButtonPressedEvent {
+                button_type: ingame_ui::LeashButtonType::Blue
+            });
+        }
+
+        if action_state.pressed(PlayerAction::ActionLeft) {
+            if let Some(pet) = player.west_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Pull(pull_direction),
+                        });
+                    }
+                }
+            }
+
+            button_hold_event_writer.send(ingame_ui::ButtonHoldEvent {
+                button_type: ingame_ui::LeashButtonType::Blue
+            });
+        }
+
+        if action_state.just_pressed(PlayerAction::ActionRight) {
+            if let Some(pet) = player.east_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Yank(pull_direction, game_state.yank_strength),
+                        });
+                    }
+                }
+            }
+
+            button_pressed_event_writer.send(ingame_ui::ButtonPressedEvent {
+                button_type: ingame_ui::LeashButtonType::Red
+            });
+        }
+
+        if action_state.pressed(PlayerAction::ActionRight) {
+            if let Some(pet) = player.east_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Pull(pull_direction),
+                        });
+                    }
+                }
+            }
+
+            button_hold_event_writer.send(ingame_ui::ButtonHoldEvent {
+                button_type: ingame_ui::LeashButtonType::Red
+            });
+        }
     }
 }

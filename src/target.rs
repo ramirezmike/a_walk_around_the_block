@@ -51,7 +51,7 @@ impl Target {
 }
 
 pub fn make_random_target() -> (Target, String) {
-    (Target::new(), "models/chicken.glb#Scene0".to_string()) 
+    (Target::new(), "models/person.glb#Scene0".to_string()) 
 }
 
 

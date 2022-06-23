@@ -32,6 +32,13 @@ pub fn load(
     assets_handler.add_audio(&mut game_assets.pickup, "audio/pickup.wav");
     assets_handler.add_audio(&mut game_assets.powerup, "audio/powerup.wav");
     assets_handler.add_audio(&mut game_assets.attack, "audio/attack.wav");
+
+    assets_handler.add_font(&mut game_assets.font, "fonts/monogram.ttf");
+
+    assets_handler.add_material(&mut game_assets.green_button, "textures/green_button.png", true);
+    assets_handler.add_material(&mut game_assets.red_button, "textures/red_button.png", true);
+    assets_handler.add_material(&mut game_assets.blue_button, "textures/blue_button.png", true);
+    assets_handler.add_material(&mut game_assets.yellow_button, "textures/yellow_button.png", true);
 }
 
 fn setup(
@@ -50,96 +57,19 @@ fn setup(
         brightness: 0.50,
     });
 
-    if let Some(gltf) = assets_gltf.get(&game_assets.chunk) {
-        commands
-            .spawn_bundle((
-                Transform::from_xyz(0.0, -0.5, 0.0),
-                GlobalTransform::identity(),
-            ))
-            .insert(game_state::Chunk {
-                position: Vec2::new(0.0, 0.0),
-            })
-            .insert(CleanupMarker)
-            .with_children(|parent| {
-                parent.spawn_scene(gltf.scenes[0].clone());
-            });
-    }
-
-    if let Some(gltf) = assets_gltf.get(&game_assets.chicken) {
-        let mut player = commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube::default())),
-            material: materials.add(Color::GREEN.into()),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..Default::default()
-        });
-
-        let player_id = player.id();
-        player
+    let mut player = commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube::default())),
+        material: materials.add(Color::GREEN.into()),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+        ..Default::default()
+    })
             .insert(leash::Anchor {
                 parent: None,
                 leash: None,
             })
+            .insert_bundle(player::PlayerBundle::new(None))
             .insert(CleanupMarker);
 
-        let leash = commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::default())),
-                material: materials.add(StandardMaterial {
-                    unlit: true,
-                    base_color: Color::RED,
-                    ..Default::default()
-                }),
-                transform: Transform::from_scale(Vec3::ZERO),
-                ..Default::default()
-            })
-            .insert(leash::Leash)
-            .insert(CleanupMarker)
-            .id();
-
-        let chicken_id = commands
-            .spawn_bundle((
-                Transform::from_xyz(0.0, 0.0, 0.0),
-                GlobalTransform::identity(),
-            ))
-            .with_children(|parent| {
-                parent
-                    .spawn_bundle((
-                        Transform::from_rotation(Quat::from_rotation_y(
-                            std::f32::consts::FRAC_PI_2,
-                        )),
-                        GlobalTransform::identity(),
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn_scene(asset_server.load("models/chicken.glb#Scene0"));
-                    });
-            })
-            .insert_bundle(bot::BotBundle::new())
-            .insert(CleanupMarker)
-            .insert(bot::Pet {
-                pet_type: bot::PetType::Chicken,
-            })
-            .insert(leash::Anchor {
-                parent: Some(player_id),
-                leash: Some(leash),
-            })
-            .id();
-
-        commands
-            .entity(player_id)
-            .insert_bundle(player::PlayerBundle::new(Some(chicken_id)));
-
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube::default())),
-                material: materials.add(Color::BLUE.into()),
-                transform: Transform::from_xyz(6.0, 0.0, 6.0),
-                ..Default::default()
-            })
-            .insert(CleanupMarker)
-            .insert(target::Target::new());
-    }
-
     component_adder.reset();
-
     new_chunk_event_writer.send(game_state::NewChunkEvent);
 }

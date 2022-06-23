@@ -41,34 +41,17 @@ pub struct PathPointer;
 // Marker struct for obstacles
 #[derive(Component)]
 pub struct PathObstacle;
-// Marker struct for the intersection point
-#[derive(Component)]
-struct PathObstaclePoint;
 
 #[derive(Component)]
-pub struct Leash;
+pub struct Leash {
+    pub color: Color
+}
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
-            material: materials.add(StandardMaterial {
-                unlit: true,
-                base_color: Color::RED,
-                ..Default::default()
-            }),
-            transform: Transform::from_scale(Vec3::splat(0.1)),
-            visibility: Visibility {
-                is_visible: false,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(PathObstaclePoint);
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -310,23 +293,36 @@ fn handle_create_anchor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut create_anchor_event_reader: EventReader<CreateAnchorEvent>,
     mut anchors: Query<&mut Anchor>,
+    leashes: Query<&Leash>,
 ) {
     for event in create_anchor_event_reader.iter() {
         // check if parent exists?
         if let Ok(mut child_anchor) = anchors.get_mut(event.child) {
             //          println!("anchor created");
+            let leash_color = if let Some(leash) = child_anchor.leash {
+                                  if let Ok(leash) = leashes.get(leash) {
+                                      leash.color
+                                  } else {
+                                      Color::PURPLE
+                                  }
+                              } else {
+                                  Color::PURPLE
+                              };
+
             let leash = commands
                 .spawn_bundle(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Box::default())),
                     material: materials.add(StandardMaterial {
                         unlit: true,
-                        base_color: Color::RED,
+                        base_color: leash_color,
                         ..Default::default()
                     }),
                     transform: Transform::from_scale(Vec3::ZERO),
                     ..Default::default()
                 })
-                .insert(Leash)
+                .insert(Leash {
+                    color: leash_color
+                })
                 .id();
 
             let new_anchor = commands
