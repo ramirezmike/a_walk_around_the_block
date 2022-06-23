@@ -1,4 +1,4 @@
-use crate::{assets::GameAssets, AppState, ingame};
+use crate::{assets::GameAssets, ingame, AppState};
 use bevy::{asset::Asset, ecs::system::SystemParam, gltf::Gltf, prelude::*};
 use bevy_kira_audio::AudioSource;
 use std::marker::PhantomData;

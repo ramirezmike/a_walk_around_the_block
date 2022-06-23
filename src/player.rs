@@ -1,4 +1,4 @@
-use crate::{direction, AppState, leash, collision, bot};
+use crate::{bot, collision, direction, leash, AppState};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
@@ -59,11 +59,11 @@ fn move_player(
                 Movement::Normal(direction) => {
                     let acceleration = Vec3::from(direction);
                     player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
-                },
+                }
                 Movement::Pull(direction) => {
                     let acceleration = direction;
                     player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
-                },
+                }
                 Movement::Push(direction) => {
                     let acceleration = direction;
                     player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
@@ -164,10 +164,15 @@ pub struct Player {
     pub rotation_speed: f32,
     pub friction: f32,
     pub random: f32,
+
+    pub north_pet: Option<Entity>,
+    pub south_pet: Option<Entity>,
+    pub west_pet: Option<Entity>,
+    pub east_pet: Option<Entity>,
 }
 
 impl Player {
-    pub fn new() -> Self {
+    pub fn new(starting_pet: Option<Entity>) -> Self {
         let mut rng = rand::thread_rng();
 
         Player {
@@ -176,6 +181,10 @@ impl Player {
             rotation_speed: 1.0,
             friction: 0.01,
             random: rng.gen_range(0.5..1.0),
+            north_pet: None,
+            south_pet: starting_pet,
+            west_pet: None,
+            east_pet: None,
         }
     }
 }
@@ -187,19 +196,17 @@ pub struct PlayerBundle {
     input_manager: InputManagerBundle<PlayerAction>,
 }
 
-impl Default for PlayerBundle {
-    fn default() -> Self {
+impl PlayerBundle {
+    pub fn new(starting_pet: Option<Entity>) -> Self {
         PlayerBundle {
-            player: Player::new(),
+            player: Player::new(starting_pet),
             input_manager: InputManagerBundle {
                 input_map: PlayerBundle::default_input_map(),
                 action_state: ActionState::default(),
             },
         }
     }
-}
 
-impl PlayerBundle {
     fn default_input_map() -> InputMap<PlayerAction> {
         use PlayerAction::*;
         let mut input_map = InputMap::default();
@@ -256,11 +263,13 @@ pub enum Movement {
 
 fn handle_input(
     mut app_state: ResMut<State<AppState>>,
-    player: Query<(Entity, &ActionState<PlayerAction>, &Transform), (With<Player>, Without<bot::Bot>)>,
-    anchors: Query<(&Transform, &leash::Anchor)>,
+    players: Query<(Entity, &ActionState<PlayerAction>, &Transform, &Player), Without<bot::Bot>>,
+    anchors: Query<&Transform, With<leash::Anchor>>,
+    pets: Query<(&Transform, &leash::Anchor), With<bot::Pet>>,
     mut player_move_event_writer: EventWriter<PlayerMoveEvent>,
 ) {
-    for (entity, action_state, transform) in player.iter() {
+    for (entity, action_state, transform, player) in players.iter() {
+        //        println!("T: {:?}", transform.translation);
         let mut direction = direction::Direction::NEUTRAL;
 
         for input_direction in PlayerAction::DIRECTIONS {
@@ -270,7 +279,10 @@ fn handle_input(
         }
 
         if direction != direction::Direction::NEUTRAL {
-            player_move_event_writer.send(PlayerMoveEvent { entity, movement: Movement::Normal(direction) });
+            player_move_event_writer.send(PlayerMoveEvent {
+                entity,
+                movement: Movement::Normal(direction),
+            });
         }
 
         if action_state.just_pressed(PlayerAction::Pause) {
@@ -280,11 +292,17 @@ fn handle_input(
         if action_state.just_pressed(PlayerAction::ActionUp) {}
 
         if action_state.pressed(PlayerAction::ActionDown) {
-            for (anchor_transform, anchor) in anchors.iter() {
-                if let Some(parent) = anchor.parent {
-                    if parent == entity {
-                        let pull_direction = anchor_transform.translation - transform.translation;
-                        player_move_event_writer.send(PlayerMoveEvent { entity, movement: Movement::Pull(pull_direction) });
+            if let Some(pet) = player.south_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        println!("pulling");
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Pull(pull_direction),
+                        });
                     }
                 }
             }

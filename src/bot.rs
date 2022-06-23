@@ -1,11 +1,11 @@
-use crate::{collision, player, player::PlayerAction, AppState, target, leash};
+use crate::{collision, leash, player, player::PlayerAction, target, AppState};
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::*;
 use bevy::render::primitives::Aabb;
 use bevy_mod_raycast::{
     ray_intersection_over_mesh, Backfaces, DefaultPluginState, DefaultRaycastingPlugin, Ray3d,
     RayCastMesh, RayCastMethod, RayCastSource, RaycastSystem,
 };
+use leafwing_input_manager::prelude::*;
 use std::cmp::Ordering;
 
 pub struct BotPlugin;
@@ -13,8 +13,7 @@ pub struct BotPlugin;
 impl Plugin for BotPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
-            SystemSet::on_update(AppState::InGame)
-                .with_system(update_bot_ai.label("ai"))
+            SystemSet::on_update(AppState::InGame).with_system(update_bot_ai.label("ai")),
         );
     }
 }
@@ -40,6 +39,15 @@ impl Bot {
     }
 }
 
+#[derive(Component)]
+pub struct Pet {
+    pub pet_type: PetType,
+}
+
+pub enum PetType {
+    Chicken,
+}
+
 #[derive(Bundle)]
 pub struct BotBundle {
     player: player::Player,
@@ -51,7 +59,7 @@ pub struct BotBundle {
 impl BotBundle {
     pub fn new() -> Self {
         BotBundle {
-            player: player::Player::new(),
+            player: player::Player::new(None),
             bot: Bot::default(),
             input_manager: InputManagerBundle {
                 input_map: InputMap::default(),
@@ -63,7 +71,10 @@ impl BotBundle {
 
 fn update_bot_ai(
     time: Res<Time>,
-    mut bots: Query<(Entity, &mut Bot, &Transform), (Without<leash::PathObstacle>, Without<target::Target>)>,
+    mut bots: Query<
+        (Entity, &mut Bot, &Transform),
+        (Without<leash::PathObstacle>, Without<target::Target>),
+    >,
     targets: Query<(Entity, &Transform), (With<target::Target>, Without<Bot>)>,
     obstacles: Query<
         (&Handle<Mesh>, &Transform, &Aabb, &GlobalTransform),
@@ -88,7 +99,8 @@ fn update_bot_ai(
 
                     // Check for intersection with this obstacle
                     if let Some(intersection) =
-                        ray_intersection_over_mesh(mesh, &mesh_to_world, &ray, Backfaces::Cull) {
+                        ray_intersection_over_mesh(mesh, &mesh_to_world, &ray, Backfaces::Cull)
+                    {
                         obstacle_exists = true;
                         break;
                     }
@@ -97,8 +109,8 @@ fn update_bot_ai(
 
             if !obstacle_exists {
                 player_move_event_writer.send(player::PlayerMoveEvent {
-                    entity, 
-                    movement: player::Movement::Push(ray_direction)
+                    entity,
+                    movement: player::Movement::Push(ray_direction),
                 });
                 break;
             }

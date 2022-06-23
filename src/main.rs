@@ -9,6 +9,7 @@ mod collision;
 mod component_adder;
 mod direction;
 mod game_camera;
+mod game_state;
 mod ingame;
 mod leash;
 mod player;
@@ -21,6 +22,7 @@ fn main() {
         .add_plugin(asset_loading::AssetLoadingPlugin)
         .add_plugin(bot::BotPlugin)
         .add_plugin(component_adder::ComponentAdderPlugin)
+        .add_plugin(game_state::GameStatePlugin)
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
@@ -44,6 +46,9 @@ pub fn cleanup<T: Component>(mut commands: Commands, entities: Query<Entity, Wit
         commands.entity(entity).despawn_recursive();
     }
 }
+
+#[derive(Component)]
+pub struct CleanupMarker;
 
 fn bootstrap(
     mut assets_handler: asset_loading::AssetsHandler,

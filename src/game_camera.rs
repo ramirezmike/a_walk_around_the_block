@@ -140,10 +140,12 @@ pub fn spawn_camera(mut commands: Commands) {
     camera.orthographic_projection.near = -100.0;
     camera.transform = Transform::from_xyz(-6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y);
 
-    commands.spawn_bundle(camera).insert(PanOrbitCamera {
-        radius,
-        ..Default::default()
-    })
+    commands
+        .spawn_bundle(camera)
+        .insert(PanOrbitCamera {
+            radius,
+            ..Default::default()
+        })
         .with_children(|parent| {
             const HALF_SIZE: f32 = 100.0;
             parent.spawn_bundle(DirectionalLightBundle {
@@ -168,6 +170,5 @@ pub fn spawn_camera(mut commands: Commands) {
                 },
                 ..Default::default()
             });
-        })
-    ;
+        });
 }

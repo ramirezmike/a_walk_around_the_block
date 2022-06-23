@@ -1,6 +1,7 @@
-use crate::{collision, leash};
+use crate::{collision, leash, CleanupMarker};
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
+use uuid::Uuid;
 
 pub struct ComponentAdderPlugin;
 impl Plugin for ComponentAdderPlugin {
@@ -25,7 +26,7 @@ impl ComponentAdder {
 
 fn add_components(
     mut commands: Commands,
-    mut items: Query<(Entity, &Aabb, &GlobalTransform, &Name, &mut Visibility), With<Parent>>,
+    mut items: Query<(Entity, &Aabb, &GlobalTransform, &mut Name, &mut Visibility), With<Parent>>,
     mut component_adder: ResMut<ComponentAdder>,
 ) {
     if component_adder.has_added {
@@ -38,16 +39,26 @@ fn add_components(
         return;
     }
 
-    for (entity, aabb, global_transform, name, mut visibility) in items.iter_mut() {
+    for (entity, aabb, global_transform, mut name, mut visibility) in items.iter_mut() {
+        let mut change_name = false;
         if name.as_str().contains("collidable") {
             let matrix = global_transform.compute_matrix();
-            commands.entity(entity).insert(collision::Collidable {
-                aabb: collision::WorldAabb {
-                    min: matrix.transform_point3(aabb.min().into()),
-                    max: matrix.transform_point3(aabb.max().into()),
-                },
-            })
-            .insert(leash::PathObstacle);
+            commands
+                .entity(entity)
+                .insert(collision::Collidable {
+                    aabb: collision::WorldAabb {
+                        min: matrix.transform_point3(aabb.min().into()),
+                        max: matrix.transform_point3(aabb.max().into()),
+                    },
+                })
+                .insert(CleanupMarker)
+                .insert(leash::PathObstacle);
+
+            change_name = true;
+        }
+
+        if change_name {
+            *name = Name::new(Uuid::new_v4().to_string());
         }
     }
 
