@@ -21,7 +21,7 @@ impl Plugin for BotPlugin {
 #[derive(Component)]
 pub struct Bot {
     mind_cooldown: f32,
-    target: Option<Vec2>,
+    target: Option<Vec3>,
 }
 
 impl Default for Bot {
@@ -35,7 +35,7 @@ impl Default for Bot {
 
 impl Bot {
     pub fn can_think(&self) -> bool {
-        self.mind_cooldown <= 0.0
+        self.mind_cooldown <= 0.0 && self.target.is_none()
     }
 }
 
@@ -46,6 +46,8 @@ pub struct Pet {
 
 pub enum PetType {
     Chicken,
+    Dog,
+    ChickenDog,
 }
 
 #[derive(Bundle)]
@@ -76,6 +78,7 @@ fn update_bot_ai(
         (Without<leash::PathObstacle>, Without<target::Target>),
     >,
     targets: Query<(Entity, &Transform), (With<target::Target>, Without<Bot>)>,
+    player: Query<&Transform, (With<player::Player>, Without<Bot>)>,
     obstacles: Query<
         (&Handle<Mesh>, &Transform, &Aabb, &GlobalTransform),
         (With<leash::PathObstacle>, Without<Bot>),
@@ -84,6 +87,12 @@ fn update_bot_ai(
     mut player_move_event_writer: EventWriter<player::PlayerMoveEvent>,
 ) {
     for (entity, mut bot, bot_transform) in bots.iter_mut() {
+        // handling mind cool down
+        bot.mind_cooldown -= time.delta_seconds();
+        bot.mind_cooldown = bot.mind_cooldown.clamp(-10.0, 30.0);
+
+        bot.target = None;
+
         for (_, target_transform) in targets.iter() {
             let from = bot_transform.translation;
             let to = target_transform.translation;
@@ -108,11 +117,28 @@ fn update_bot_ai(
             }
 
             if !obstacle_exists {
+                bot.target = Some(ray_direction);
+                break;
+            }
+        }
+
+        if let Some(target) = bot.target {
+            player_move_event_writer.send(player::PlayerMoveEvent {
+                entity,
+                movement: player::Movement::Push(target),
+            });
+        }
+
+        if !bot.can_think() {
+            continue;
+        }
+
+        if let Ok(player) = player.get_single() {
+            if player.translation.distance(bot_transform.translation) > 3.0 {
                 player_move_event_writer.send(player::PlayerMoveEvent {
                     entity,
-                    movement: player::Movement::Push(ray_direction),
+                    movement: player::Movement::Push(player.translation - bot_transform.translation),
                 });
-                break;
             }
         }
     }

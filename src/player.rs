@@ -1,4 +1,4 @@
-use crate::{bot, collision, direction, leash, AppState};
+use crate::{bot, collision, direction, leash, AppState, game_state};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
@@ -17,7 +17,7 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-trait ZeroSignum {
+pub trait ZeroSignum {
     fn zero_signum(&self) -> Vec3;
 }
 
@@ -54,11 +54,17 @@ fn move_player(
         let friction: f32 = player.friction;
 
         player.velocity *= friction.powf(time.delta_seconds());
+        let mut yank_strength = 1.0;
         if let Some(move_event) = move_events.get(&entity) {
             match move_event.movement {
                 Movement::Normal(direction) => {
                     let acceleration = Vec3::from(direction);
                     player.velocity += (acceleration.zero_signum() * speed) * time.delta_seconds();
+                }
+                Movement::Yank(direction, strength) => {
+                    let acceleration = Vec3::from(direction);
+                    yank_strength = strength; 
+                    player.velocity += (acceleration.zero_signum() * speed * strength) * time.delta_seconds();
                 }
                 Movement::Pull(direction) => {
                     let acceleration = direction;
@@ -71,7 +77,7 @@ fn move_player(
             }
         }
 
-        player.velocity = player.velocity.clamp_length_max(speed);
+        player.velocity = player.velocity.clamp_length_max(speed * yank_strength);
 
         let mut new_translation = transform.translation + (player.velocity * time.delta_seconds());
         collidables.fit_in(
@@ -258,6 +264,7 @@ pub struct PlayerMoveEvent {
 pub enum Movement {
     Normal(direction::Direction),
     Pull(Vec3),
+    Yank(Vec3, f32), //direction, strength
     Push(Vec3),
 }
 
@@ -266,6 +273,7 @@ fn handle_input(
     players: Query<(Entity, &ActionState<PlayerAction>, &Transform, &Player), Without<bot::Bot>>,
     anchors: Query<&Transform, With<leash::Anchor>>,
     pets: Query<(&Transform, &leash::Anchor), With<bot::Pet>>,
+    game_state: Res<game_state::GameState>,
     mut player_move_event_writer: EventWriter<PlayerMoveEvent>,
 ) {
     for (entity, action_state, transform, player) in players.iter() {
@@ -290,6 +298,24 @@ fn handle_input(
         }
 
         if action_state.just_pressed(PlayerAction::ActionUp) {}
+
+
+        if action_state.just_pressed(PlayerAction::ActionDown) {
+            if let Some(pet) = player.south_pet {
+                let (pet_transform, pet_anchor) = pets.get(pet).unwrap();
+                if let Some(pet_parent) = pet_anchor.parent {
+                    if let Ok(anchor_transform) = anchors.get(pet_parent) {
+                        let pull_direction =
+                            anchor_transform.translation - pet_transform.translation;
+                        println!("Yanking {}", game_state.yank_strength);
+                        player_move_event_writer.send(PlayerMoveEvent {
+                            entity: pet,
+                            movement: Movement::Yank(pull_direction, game_state.yank_strength),
+                        });
+                    }
+                }
+            }
+        }
 
         if action_state.pressed(PlayerAction::ActionDown) {
             if let Some(pet) = player.south_pet {

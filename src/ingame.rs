@@ -132,33 +132,8 @@ fn setup(
                 ..Default::default()
             })
             .insert(CleanupMarker)
-            .insert(target::Target);
+            .insert(target::Target::new());
     }
-
-    //  let size = 2.0;
-    //  let spacing = 6.0;
-
-    //  // Spawn obstacles
-    //  for x in -2..=2 {
-    //      for z in -2..=2 {
-    //          if x as f32 * spacing == 0.0 && z as f32 * spacing == 0.0 {
-    //              continue;
-    //          }
-    //          commands
-    //              .spawn_bundle(PbrBundle {
-    //                  mesh: meshes.add(Mesh::from(shape::Cube::new(size))),
-    //                  material: materials.add(Color::BLACK.into()),
-    //                  transform: Transform::from_xyz(x as f32 * spacing, 0.0, z as f32 * spacing),
-    //                  ..Default::default()
-    //              })
-    //              .insert(Name::new(format!("collidable_{}_{}", x, z)))
-    //              .insert(leash::PathObstacle);
-    //      }
-    //  }
-
-    //  commands.spawn_bundle(InfiniteGridBundle::new(
-    //      grid_materials.add(InfiniteGridMaterial::default()),
-    //  ));
 
     component_adder.reset();
 

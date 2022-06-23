@@ -1,4 +1,4 @@
-use crate::{assets::GameAssets, bot, component_adder, player, AppState, CleanupMarker};
+use crate::{assets::GameAssets, bot, component_adder, player, AppState, CleanupMarker, target};
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -24,9 +24,18 @@ impl Plugin for GameStatePlugin {
     }
 }
 
-#[derive(Default)]
 pub struct GameState {
     pub current_chunk: Vec2,
+    pub yank_strength: f32
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        GameState {
+            current_chunk: Vec2::default(),
+            yank_strength: 10.0,
+        }
+    }
 }
 
 #[derive(PartialEq, Component)]
@@ -95,8 +104,11 @@ fn load_new_chunks(
     assets_gltf: Res<Assets<Gltf>>,
     mut new_chunk_event_reader: EventReader<NewChunkEvent>,
     mut despawn_chunk_event_writer: EventWriter<DespawnChunkEvent>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     game_state: Res<GameState>,
     chunks: Query<(Entity, &Chunk)>,
+    asset_server: Res<AssetServer>,
     mut component_adder: ResMut<component_adder::ComponentAdder>,
 ) {
     if new_chunk_event_reader.iter().count() > 0 {
@@ -165,6 +177,34 @@ fn load_new_chunks(
                         .with_children(|parent| {
                             parent.spawn_scene(gltf.scenes[0].clone());
                         });
+                            
+                    let min_x = (c.position.x * (CHUNK_SIZE as f32)) - (CHUNK_SIZE as f32 / 2.0);
+                    let max_x = (c.position.x * (CHUNK_SIZE as f32)) + (CHUNK_SIZE as f32 / 2.0);
+                    let min_z = (c.position.y * (CHUNK_SIZE as f32)) - (CHUNK_SIZE as f32 / 2.0);
+                    let max_z = (c.position.y * (CHUNK_SIZE as f32)) + (CHUNK_SIZE as f32 / 2.0);
+                    for _ in 0..20 {
+                        let spot = get_random_spot(min_x, max_x, min_z, max_z);
+                        let (target, model) = target::make_random_target();
+                        commands
+                            .spawn_bundle((
+                                Transform::from_xyz(spot.x, 0.0, spot.y),
+                                GlobalTransform::identity(),
+                            ))
+                            .with_children(|parent| {
+                                parent
+                                    .spawn_bundle((
+                                        Transform::from_rotation(Quat::from_rotation_y(
+                                            std::f32::consts::FRAC_PI_2,
+                                        )),
+                                        GlobalTransform::identity(),
+                                    ))
+                                    .with_children(|parent| {
+                                        parent.spawn_scene(asset_server.load(&model));
+                                    });
+                            })
+                            .insert(CleanupMarker)
+                            .insert(target);
+                    }
                 }
             });
 
@@ -173,3 +213,12 @@ fn load_new_chunks(
 }
 
 fn cleanup_stale_chunks() {}
+
+pub fn get_random_spot(min_x: f32, max_x: f32, min_z: f32, max_z: f32) -> Vec2 {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let x: f32 = rng.gen_range(min_x..max_x);
+    let z: f32 = rng.gen_range(min_z..max_z);
+
+    Vec2::new(x, z)
+}
