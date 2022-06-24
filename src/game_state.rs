@@ -14,6 +14,7 @@ impl Plugin for GameStatePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_chunk.label("update_chunks"))
+                    .with_system(update_timer)
                     .with_system(
                         handle_despawn_chunk_events
                             .label("despawn_chunks")
@@ -28,16 +29,26 @@ pub struct GameState {
     pub current_chunk: Vec2,
     pub game_length: usize,
     pub yank_strength: f32,
-    pub score: usize
+    pub score: usize,
+    pub current_time: f32,
+    pub lost_pet: bool
 }
 
 impl GameState {
     pub fn initialize(game_length: usize) -> Self {
+        let game_length = match game_length {
+            0 => 5,
+            1 => 10,
+            _ => 20,
+        };
+
         GameState {
             current_chunk: Vec2::default(),
             game_length: game_length,
             yank_strength: 10.0,
-            score: 0
+            score: 0,
+            lost_pet: false,
+            current_time: (game_length * 60) as f32
         }
     }
 }
@@ -48,7 +59,9 @@ impl Default for GameState {
             current_chunk: Vec2::default(),
             yank_strength: 10.0,
             game_length: 5,
-            score: 0
+            score: 0,
+            lost_pet: false,
+            current_time: (5 * 60) as f32
         }
     }
 }
@@ -56,6 +69,18 @@ impl Default for GameState {
 #[derive(PartialEq, Component)]
 pub struct Chunk {
     pub position: Vec2,
+}
+
+fn update_timer(
+    time: Res<Time>,
+    mut app_state: ResMut<State<AppState>>,
+    mut game_state: ResMut<GameState>,
+) { 
+    game_state.current_time -= time.delta_seconds();
+
+    if game_state.current_time <= 0.0 {
+        app_state.push(AppState::ScoreDisplay).unwrap();
+    }
 }
 
 fn update_chunk(
@@ -98,6 +123,9 @@ fn handle_despawn_chunk_events(
     mut commands: Commands,
     mut despawn_chunk_event_reader: EventReader<DespawnChunkEvent>,
     entities: Query<(Entity, &GlobalTransform), (With<CleanupMarker>, Without<Chunk>)>,
+    pets: Query<Entity, (With<bot::Bot>, With::<bot::Pet>)>,
+    mut app_state: ResMut<State<AppState>>,
+    mut game_state: ResMut<GameState>,
 ) {
     for event in despawn_chunk_event_reader.iter() {
         commands.entity(event.chunk_entity).despawn_recursive();
@@ -107,7 +135,14 @@ fn handle_despawn_chunk_events(
             let entity_chunk = map_to_chunk(transform.translation);
             if entity_chunk == event.chunk_position {
                 //println!("despawned entity at {:?} {:?} {:?}", chunk_x, chunk_z, transform.translation);
-                commands.entity(entity).despawn_recursive();
+                if let Ok(_) = pets.get(entity) {
+                    game_state.lost_pet = true;
+                    app_state.push(AppState::ScoreDisplay).unwrap();
+
+                    return;
+                } else {
+                    commands.entity(entity).despawn_recursive();
+                }
             }
         }
     }

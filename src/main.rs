@@ -21,6 +21,7 @@ mod menus;
 mod player;
 mod pickup;
 mod title_screen;
+mod score_display;
 mod target;
 mod ui;
 
@@ -38,6 +39,7 @@ fn main() {
         .add_plugin(game_controller::GameControllerPlugin)
         .add_plugin(mesh::MeshPlugin)
         .add_plugin(title_screen::TitlePlugin)
+        .add_plugin(score_display::ScoreDisplayPlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(follow_text::FollowTextPlugin)
@@ -55,6 +57,7 @@ pub enum AppState {
     Initial,
     Pause,
     Debug,
+    ScoreDisplay,
     Options,
     InGame,
     TitleScreen,
