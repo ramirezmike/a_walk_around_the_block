@@ -92,7 +92,7 @@ pub fn create_follow_text(
                         ..Default::default()
                     },
                     size: Size {
-                        width: Val::Px(200.0),
+                        width: Val::Percent(50.0),
                         ..Default::default()
                     },
                     ..Default::default()

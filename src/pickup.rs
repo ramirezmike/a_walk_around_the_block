@@ -41,21 +41,21 @@ pub enum PickupType {
     Coin
 }
 
-pub fn dog() -> (Pickup, String) {
+pub fn dog(game_assets: &Res<GameAssets>) -> (Pickup, Handle<Gltf>) {
     let pickup = Pickup::new(bot::PetType::Dog);
-    (pickup, "models/dog.glb#Scene0".to_string())
+    (pickup, game_assets.dog.clone())
 }
 
-pub fn make_random_pet() -> (Pickup, String) {
+pub fn make_random_pet(game_assets: &Res<GameAssets>) -> (Pickup, Handle<Gltf>) {
     let mut rng = thread_rng();
     let pet_types = vec!(bot::PetType::Chicken, bot::PetType::Dog, bot::PetType::ChickenDog);
     let picked_pet_type = pet_types.choose(&mut rng).unwrap_or(&bot::PetType::Chicken);
     let pickup = Pickup::new(*picked_pet_type);
 
     match picked_pet_type {
-        bot::PetType::Chicken => (pickup, "models/chicken.glb#Scene0".to_string()),
-        bot::PetType::Dog => (pickup, "models/dog.glb#Scene0".to_string()),
-        bot::PetType::ChickenDog => (pickup, "models/chickendog.glb#Scene0".to_string()),
+        bot::PetType::Chicken => (pickup, game_assets.chicken.clone()),
+        bot::PetType::Dog => (pickup, game_assets.dog.clone()),
+        bot::PetType::ChickenDog => (pickup, game_assets.chickendog.clone()),
     }
 }
 
@@ -96,12 +96,12 @@ fn handle_pickup_event(
                     let leash_color = player.get_next_leash_color();
 
                     let model = match pet {
-                                    bot::PetType::Chicken => "models/chicken.glb#Scene0",
-                                    bot::PetType::Dog => "models/dog.glb#Scene0",
-                                    bot::PetType::ChickenDog => "models/chickendog.glb#Scene0",
+                                    bot::PetType::Chicken => game_assets.chicken.clone(),
+                                    bot::PetType::Dog => game_assets.dog.clone(),
+                                    bot::PetType::ChickenDog => game_assets.chickendog.clone(),
                                 };
 
-                    if let Some(_) = assets_gltf.get(&game_assets.chicken) {
+                    if let Some(gltf) = assets_gltf.get(&model) {
                         let leash = commands
                             .spawn_bundle(PbrBundle {
                                 mesh: meshes.add(Mesh::from(shape::Box::default())),
@@ -119,7 +119,7 @@ fn handle_pickup_event(
                             .insert(CleanupMarker)
                             .id();
 
-                        let chicken_id = commands
+                        let pet_id = commands
                             .spawn_bundle((
                                 Transform::from_translation(player_transform.translation),
                                 GlobalTransform::identity(),
@@ -133,7 +133,7 @@ fn handle_pickup_event(
                                         GlobalTransform::identity(),
                                     ))
                                     .with_children(|parent| {
-                                        parent.spawn_scene(asset_server.load(model));
+                                        parent.spawn_scene(gltf.scenes[0].clone());
                                     });
                             })
                             .insert_bundle(bot::BotBundle::new())
@@ -146,7 +146,8 @@ fn handle_pickup_event(
                                 leash: Some(leash),
                             })
                             .id();
-                        player.add_pet(chicken_id);
+
+                        player.add_pet(pet_id);
 
                         follow_text_event_writer.send(follow_text::FollowTextEvent {
                             follow: follow_text::FollowThing::Spot(player_transform.translation),

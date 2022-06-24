@@ -16,6 +16,9 @@ pub struct GameAssets {
     pub chicken: Handle<Gltf>,
     pub dog: Handle<Gltf>,
     pub person: Handle<Gltf>,
+    pub chickendog: Handle<Gltf>,
+    pub chip: Handle<Gltf>,
+    pub worm: Handle<Gltf>,
     pub chunk: Handle<Gltf>,
 
     pub pickup: Handle<AudioSource>,

@@ -1,6 +1,7 @@
-use crate::{AppState, collision, player::ZeroSignum, follow_text, bot, game_state};
+use crate::{AppState, collision, player::ZeroSignum, follow_text, bot, game_state, audio, assets::GameAssets};
 use bevy::prelude::*;
 use rand::Rng;
+use bevy::gltf::Gltf;
 use std::collections::HashMap;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -33,10 +34,12 @@ fn handle_target_hit_event(
     mut follow_text_event_writer: EventWriter<follow_text::FollowTextEvent>,
     mut targets: Query<(Entity, &mut Target, &Transform)>,
     mut game_state: ResMut<game_state::GameState>,
+    mut audio: audio::GameAudio,
+    game_assets: Res<GameAssets>,
 ) { 
     for event in target_hit_event_reader.iter() {
         if let Ok((target_entity, mut target, target_transform)) = targets.get_mut(event.entity) {
-            match target.hit_and_response(event.hit_by) {
+            match target.hit_and_response(event.hit_by, &mut audio, &game_assets) {
                 TargetHitResponse::Text(text, color, ttl) => {
                     follow_text_event_writer.send(follow_text::FollowTextEvent {
                         follow: follow_text::FollowThing::Entity(event.entity),
@@ -157,7 +160,12 @@ impl Target {
         }
     }
 
-    pub fn hit_and_response(&mut self, hit_by: bot::PetType) -> TargetHitResponse {
+
+    pub fn hit_and_response(&mut self, 
+        hit_by: bot::PetType,
+        mut audio: &mut audio::GameAudio,
+        game_assets: &Res<GameAssets>,
+    ) -> TargetHitResponse {
         // here we go!!
         if self.hit_cooldown >= 0.0 {
             return TargetHitResponse::Nothing;
@@ -171,18 +179,20 @@ impl Target {
                 match hit_by {
                     bot::PetType::Dog => {
                         self.ignore = true;
-                        TargetHitResponse::ScoreUp("Aww!".to_string(), 100, Color::GREEN, standard_time, false)
+                        audio.play_sfx(&game_assets.powerup);
+                        TargetHitResponse::ScoreUp(get_happy_dog_msg(), 100, Color::GREEN, standard_time, false)
                     },
                     bot::PetType::Chicken => {
-                        TargetHitResponse::ScoreDown("Ahh!!".to_string(), 100, Color::RED, standard_time, false)
+                        TargetHitResponse::ScoreDown(get_angry_chicken_msg(), 100, Color::RED, standard_time, false)
                     },
                     bot::PetType::ChickenDog => {
                         self.health = self.health.saturating_sub(1);
 
+                        audio.play_sfx(&game_assets.attack);
                         if self.health == 0 {
                             TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
                         } else {
-                            TargetHitResponse::Text("OH GOD".to_string(), Color::RED, standard_time)
+                            TargetHitResponse::Text(get_chicken_dog_msg(), Color::RED, standard_time)
                         }
                     },
                 }
@@ -192,6 +202,7 @@ impl Target {
                     bot::PetType::Dog => {
                         self.health = self.health.saturating_sub(1);
 
+                        audio.play_sfx(&game_assets.attack);
                         if self.health == 0 {
                             TargetHitResponse::ScoreDown("-100".to_string(), 100, Color::RED, standard_time, true)
                         } else {
@@ -201,6 +212,7 @@ impl Target {
                     bot::PetType::Chicken => TargetHitResponse::Nothing,
                     bot::PetType::ChickenDog => {
                         self.health = self.health.saturating_sub(1);
+                        audio.play_sfx(&game_assets.attack);
 
                         TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, self.health == 0)
                     },
@@ -211,6 +223,7 @@ impl Target {
                     bot::PetType::Dog => TargetHitResponse::Nothing,
                     bot::PetType::Chicken | bot::PetType::ChickenDog => {
                         self.health = self.health.saturating_sub(1);
+                        audio.play_sfx(&game_assets.attack);
 
                         if self.health == 0 {
                             TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
@@ -228,16 +241,16 @@ impl Target {
     }
 }
 
-pub fn make_random_target() -> (Target, String) {
+pub fn make_random_target(game_assets: &Res<GameAssets>) -> (Target, Handle<Gltf>) {
     let mut rng = thread_rng();
     let types = vec!(TargetType::Person, TargetType::Worm, TargetType::Chip);
     let picked_type = types.choose(&mut rng).unwrap_or(&TargetType::Person);
     let target = Target::new(*picked_type);
 
     match picked_type {
-        TargetType::Person => (target, "models/person.glb#Scene0".to_string()),
-        TargetType::Worm => (target, "models/worm.glb#Scene0".to_string()),
-        TargetType::Chip => (target, "models/chip.glb#Scene0".to_string()),
+        TargetType::Person => (target, game_assets.person.clone()),
+        TargetType::Worm => (target, game_assets.worm.clone()),
+        TargetType::Chip => (target, game_assets.chip.clone()),
     }
 }
 
@@ -366,4 +379,41 @@ pub fn get_random_direction() -> Vec2 {
     let z: f32 = rng.gen_range(-100.0..100.0);
 
     Vec2::new(x, z).normalize()
+}
+
+pub fn get_angry_chicken_msg() -> String {
+    let mut rng = thread_rng();
+    let messages = vec!(
+        "get away!",
+        "leave me alone!",
+        "stop it!",
+        "no!",
+    );
+
+    messages.choose(&mut rng).unwrap_or(&"Ahh").to_string()
+}
+
+pub fn get_chicken_dog_msg() -> String {
+    let mut rng = thread_rng();
+    let messages = vec!(
+        "WHAT IS THAT",
+        "OH MY GOD",
+        "HELP!!",
+        "IT'S EATING ME",
+        "SAVE ME PLEASE!",
+    );
+
+    messages.choose(&mut rng).unwrap_or(&"AHHH").to_string()
+}
+
+pub fn get_happy_dog_msg() -> String {
+    let mut rng = thread_rng();
+    let messages = vec!(
+        "How cute!",
+        "A dog!",
+        "Can I pet you?",
+        "you're the best!",
+    );
+
+    messages.choose(&mut rng).unwrap_or(&"Aww!").to_string()
 }

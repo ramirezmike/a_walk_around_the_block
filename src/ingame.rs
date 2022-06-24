@@ -27,6 +27,11 @@ pub fn load(
     game_assets: &mut ResMut<GameAssets>,
 ) {
     assets_handler.add_glb(&mut game_assets.chicken, "models/chicken.glb");
+    assets_handler.add_glb(&mut game_assets.dog, "models/dog.glb");
+    assets_handler.add_glb(&mut game_assets.person, "models/person.glb");
+    assets_handler.add_glb(&mut game_assets.chickendog, "models/chickendog.glb");
+    assets_handler.add_glb(&mut game_assets.chip, "models/chip.glb");
+    assets_handler.add_glb(&mut game_assets.worm, "models/worm.glb");
     assets_handler.add_glb(&mut game_assets.chunk, "models/chunk.glb");
 
     assets_handler.add_audio(&mut game_assets.pickup, "audio/pickup.wav");
@@ -57,29 +62,31 @@ fn setup(
         brightness: 0.50,
     });
 
-    let mut player = commands
-        .spawn_bundle((
-            Transform::from_xyz(0.0, 0.0, 0.0),
-            GlobalTransform::identity(),
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn_bundle((
-                    Transform::from_rotation(Quat::from_rotation_y(
-                        std::f32::consts::FRAC_PI_2,
-                    )),
-                    GlobalTransform::identity(),
-                ))
-                .with_children(|parent| {
-                    parent.spawn_scene(asset_server.load("models/person.glb#Scene0"));
-                });
-            })
-            .insert(leash::Anchor {
-                parent: None,
-                leash: None,
-            })
-            .insert_bundle(player::PlayerBundle::new(None))
-            .insert(CleanupMarker);
+    if let Some(gltf) = assets_gltf.get(&game_assets.person) {
+        let mut player = commands
+            .spawn_bundle((
+                Transform::from_xyz(0.0, 0.0, 0.0),
+                GlobalTransform::identity(),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn_bundle((
+                        Transform::from_rotation(Quat::from_rotation_y(
+                            std::f32::consts::FRAC_PI_2,
+                        )),
+                        GlobalTransform::identity(),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn_scene(gltf.scenes[0].clone());
+                    });
+                })
+                .insert(leash::Anchor {
+                    parent: None,
+                    leash: None,
+                })
+                .insert_bundle(player::PlayerBundle::new(None))
+                .insert(CleanupMarker);
+    }
 
     component_adder.reset();
     new_chunk_event_writer.send(game_state::NewChunkEvent);
