@@ -10,6 +10,8 @@ mod collision;
 mod component_adder;
 mod direction;
 mod follow_text;
+mod mesh;
+mod game_controller;
 mod game_camera;
 mod game_state;
 mod ingame;
@@ -18,6 +20,7 @@ mod leash;
 mod menus;
 mod player;
 mod pickup;
+mod title_screen;
 mod target;
 mod ui;
 
@@ -32,11 +35,14 @@ fn main() {
         .add_plugin(game_state::GameStatePlugin)
         .add_plugin(ingame_ui::InGameUIPlugin)
         .add_plugin(ingame::InGamePlugin)
+        .add_plugin(game_controller::GameControllerPlugin)
+        .add_plugin(mesh::MeshPlugin)
+        .add_plugin(title_screen::TitlePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(follow_text::FollowTextPlugin)
         .add_plugin(ui::text_size::TextSizePlugin)
-        //.add_plugin(menus::options::OptionsMenuPlugin)
+        .add_plugin(menus::options::OptionsMenuPlugin)
         .add_plugin(pickup::PickupPlugin)
         .add_plugin(target::TargetPlugin)
         .add_state(AppState::Initial)
@@ -49,7 +55,9 @@ pub enum AppState {
     Initial,
     Pause,
     Debug,
+    Options,
     InGame,
+    TitleScreen,
     Loading,
 }
 
@@ -66,5 +74,5 @@ fn bootstrap(
     mut assets_handler: asset_loading::AssetsHandler,
     mut game_assets: ResMut<assets::GameAssets>,
 ) {
-    assets_handler.load(AppState::InGame, &mut game_assets);
+    assets_handler.load(AppState::TitleScreen, &mut game_assets);
 }

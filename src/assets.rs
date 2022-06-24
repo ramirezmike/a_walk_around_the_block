@@ -19,13 +19,18 @@ pub struct GameAssets {
     pub chunk: Handle<Gltf>,
 
     pub pickup: Handle<AudioSource>,
+    pub blip: Handle<AudioSource>,
     pub powerup: Handle<AudioSource>,
     pub attack: Handle<AudioSource>,
+    pub titlescreen: Handle<AudioSource>,
+    pub game_music: Handle<AudioSource>,
 
     pub green_button: asset_loading::GameTexture,
     pub red_button: asset_loading::GameTexture,
     pub blue_button: asset_loading::GameTexture,
     pub yellow_button: asset_loading::GameTexture,
+    pub title_screen_background: asset_loading::GameTexture,
+    pub title_screen_logo: asset_loading::GameTexture,
 }
 
 #[derive(Default)]

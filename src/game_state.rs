@@ -26,8 +26,20 @@ impl Plugin for GameStatePlugin {
 
 pub struct GameState {
     pub current_chunk: Vec2,
+    pub game_length: usize,
     pub yank_strength: f32,
     pub score: usize
+}
+
+impl GameState {
+    pub fn initialize(game_length: usize) -> Self {
+        GameState {
+            current_chunk: Vec2::default(),
+            game_length: game_length,
+            yank_strength: 10.0,
+            score: 0
+        }
+    }
 }
 
 impl Default for GameState {
@@ -35,6 +47,7 @@ impl Default for GameState {
         GameState {
             current_chunk: Vec2::default(),
             yank_strength: 10.0,
+            game_length: 5,
             score: 0
         }
     }
