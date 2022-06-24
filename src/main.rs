@@ -9,6 +9,7 @@ mod bot;
 mod collision;
 mod component_adder;
 mod direction;
+mod follow_text;
 mod game_camera;
 mod game_state;
 mod ingame;
@@ -33,6 +34,7 @@ fn main() {
         .add_plugin(ingame::InGamePlugin)
         .add_plugin(leash::LeashPlugin)
         .add_plugin(player::PlayerPlugin)
+        .add_plugin(follow_text::FollowTextPlugin)
         .add_plugin(ui::text_size::TextSizePlugin)
         //.add_plugin(menus::options::OptionsMenuPlugin)
         .add_plugin(pickup::PickupPlugin)

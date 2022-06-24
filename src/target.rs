@@ -1,20 +1,93 @@
-use crate::{AppState, collision, player::ZeroSignum};
+use crate::{AppState, collision, player::ZeroSignum, follow_text, bot, game_state};
 use bevy::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 pub struct TargetPlugin;
 
 impl Plugin for TargetPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<TargetMoveEvent>()
-            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_targets).with_system(update_target_minds));
+            .add_event::<TargetHitEvent>()
+            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_targets)
+                            .with_system(handle_target_hit_event)
+                            .with_system(update_target_minds));
     }
 }
 
 pub struct TargetMoveEvent {
     pub entity: Entity,
     pub direction: Vec2,
+}
+
+pub struct TargetHitEvent {
+    pub entity: Entity,
+    pub hit_by: bot::PetType
+
+}
+
+fn handle_target_hit_event(
+    mut commands: Commands,
+    mut target_hit_event_reader: EventReader<TargetHitEvent>,
+    mut follow_text_event_writer: EventWriter<follow_text::FollowTextEvent>,
+    mut targets: Query<(Entity, &mut Target, &Transform)>,
+    mut game_state: ResMut<game_state::GameState>,
+) { 
+    for event in target_hit_event_reader.iter() {
+        if let Ok((target_entity, mut target, target_transform)) = targets.get_mut(event.entity) {
+            match target.hit_and_response(event.hit_by) {
+                TargetHitResponse::Text(text, color, ttl) => {
+                    follow_text_event_writer.send(follow_text::FollowTextEvent {
+                        follow: follow_text::FollowThing::Entity(event.entity),
+                        text: text,
+                        color: color,
+                        time_to_live: ttl,
+                    });
+                },
+                TargetHitResponse::ScoreUp(text, score, color, ttl, death) => {
+                    game_state.score += score;
+                    if death {
+                        commands.entity(target_entity).despawn_recursive();
+                        follow_text_event_writer.send(follow_text::FollowTextEvent {
+                            follow: follow_text::FollowThing::Spot(target_transform.translation),
+                            text: text,
+                            color: color,
+                            time_to_live: ttl,
+                        });
+                    } else {
+                        follow_text_event_writer.send(follow_text::FollowTextEvent {
+                            follow: follow_text::FollowThing::Entity(event.entity),
+                            text: text,
+                            color: color,
+                            time_to_live: ttl,
+                        });
+                    }
+                },
+                TargetHitResponse::ScoreDown(text, score, color, ttl, death) => {
+                    game_state.score = game_state.score.saturating_sub(score);
+                    if death {
+                        commands.entity(target_entity).despawn_recursive();
+                        follow_text_event_writer.send(follow_text::FollowTextEvent {
+                            follow: follow_text::FollowThing::Spot(target_transform.translation),
+                            text: text,
+                            color: color,
+                            time_to_live: ttl,
+                        });
+                    } else {
+                        follow_text_event_writer.send(follow_text::FollowTextEvent {
+                            follow: follow_text::FollowThing::Entity(event.entity),
+                            text: text,
+                            color: color,
+                            time_to_live: ttl,
+                        });
+                    }
+                },
+                TargetHitResponse::Nothing => ()
+            }
+        }
+    }
 }
 
 #[derive(Component)]
@@ -26,22 +99,123 @@ pub struct Target {
     pub random: f32,
     pub target_type: TargetType,
     pub mind_cooldown: f32,
+    pub hit_cooldown: f32,
+    pub health: usize,
     pub heading_to: Option::<Vec2>,
 }
 
 impl Target {
-    pub fn new() -> Self {
+    pub fn new(target_type: TargetType) -> Self {
         let mut rng = rand::thread_rng();
 
-        Target {
-            velocity: Vec3::default(),
-            speed: 10.0,
-            rotation_speed: 1.0,
-            friction: 0.01,
-            random: rng.gen_range(0.5..1.0),
-            target_type: TargetType::Bug,
-            heading_to: None,
-            mind_cooldown: 0.0
+        match target_type {
+            TargetType::Person => {
+                Target {
+                    velocity: Vec3::default(),
+                    speed: 10.0,
+                    rotation_speed: 1.0,
+                    friction: 0.01,
+                    random: rng.gen_range(0.5..1.0),
+                    target_type: target_type,
+                    heading_to: None,
+                    mind_cooldown: 0.0,
+                    hit_cooldown: 0.0,
+                    health: 5,
+                }
+            },
+            TargetType::Worm => {
+                Target {
+                    velocity: Vec3::default(),
+                    speed: 1.0,
+                    rotation_speed: 1.0,
+                    friction: 0.01,
+                    random: rng.gen_range(0.5..1.0),
+                    target_type: target_type,
+                    heading_to: None,
+                    mind_cooldown: 0.0,
+                    hit_cooldown: 0.0,
+                    health: 1,
+                }
+            },
+            TargetType::Chip => {
+                Target {
+                    velocity: Vec3::default(),
+                    speed: 12.0,
+                    rotation_speed: 1.0,
+                    friction: 0.01,
+                    random: rng.gen_range(0.5..1.0),
+                    target_type: target_type,
+                    heading_to: None,
+                    mind_cooldown: 0.0,
+                    hit_cooldown: 0.0,
+                    health: 2,
+                }
+            },
+        }
+    }
+
+    pub fn hit_and_response(&mut self, hit_by: bot::PetType) -> TargetHitResponse {
+        // here we go!!
+        if self.hit_cooldown >= 0.0 {
+            return TargetHitResponse::Nothing;
+        }
+
+        self.hit_cooldown = 2.0;
+        let standard_time = 2.0;
+
+        match self.target_type {
+            TargetType::Person => {
+                match hit_by {
+                    bot::PetType::Dog => {
+                        TargetHitResponse::ScoreUp("Aww!".to_string(), 100, Color::GREEN, standard_time, false)
+                    },
+                    bot::PetType::Chicken => {
+                        TargetHitResponse::ScoreDown("Ahh!!".to_string(), 100, Color::RED, standard_time, false)
+                    },
+                    bot::PetType::ChickenDog => {
+                        self.health = self.health.saturating_sub(1);
+
+                        if self.health == 0 {
+                            TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
+                        } else {
+                            TargetHitResponse::Text("OH GOD".to_string(), Color::RED, standard_time)
+                        }
+                    },
+                }
+            },
+            TargetType::Chip => {
+                match hit_by {
+                    bot::PetType::Dog => {
+                        self.health = self.health.saturating_sub(1);
+
+                        if self.health == 0 {
+                            TargetHitResponse::ScoreDown("-100".to_string(), 100, Color::RED, standard_time, true)
+                        } else {
+                            TargetHitResponse::Nothing
+                        }
+                    },
+                    bot::PetType::Chicken => TargetHitResponse::Nothing,
+                    bot::PetType::ChickenDog => {
+                        self.health = self.health.saturating_sub(1);
+
+                        TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, self.health == 0)
+                    },
+                }
+            },
+            TargetType::Worm => {
+                match hit_by {
+                    bot::PetType::Dog => TargetHitResponse::Nothing,
+                    bot::PetType::Chicken | bot::PetType::ChickenDog => {
+                        self.health = self.health.saturating_sub(1);
+
+                        if self.health == 0 {
+                            TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
+                        } else {
+                            TargetHitResponse::Nothing
+                        }
+                    },
+                }
+            },
         }
     }
 
@@ -51,12 +225,31 @@ impl Target {
 }
 
 pub fn make_random_target() -> (Target, String) {
-    (Target::new(), "models/person.glb#Scene0".to_string()) 
+    let mut rng = thread_rng();
+    let types = vec!(TargetType::Person, TargetType::Worm, TargetType::Chip);
+    let picked_type = types.choose(&mut rng).unwrap_or(&TargetType::Person);
+    let target = Target::new(*picked_type);
+
+    match picked_type {
+        TargetType::Person => (target, "models/person.glb#Scene0".to_string()),
+        TargetType::Worm => (target, "models/worm.glb#Scene0".to_string()),
+        TargetType::Chip => (target, "models/chip.glb#Scene0".to_string()),
+    }
 }
 
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum TargetType {
-    Bug
+    Person,
+    Worm,
+    Chip
+}
+
+pub enum TargetHitResponse {
+    Text(String, Color, f32),
+    ScoreUp(String, usize, Color, f32, bool),
+    ScoreDown(String, usize, Color, f32, bool),
+    Nothing,
 }
 
 fn update_targets(
@@ -142,6 +335,8 @@ fn update_target_minds(
         // handling mind cool down
         target.mind_cooldown -= time.delta_seconds();
         target.mind_cooldown = target.mind_cooldown.clamp(-10.0, 30.0);
+        target.hit_cooldown -= time.delta_seconds();
+        target.hit_cooldown = target.mind_cooldown.clamp(-10.0, 30.0);
 
         if let Some(heading_to) = target.heading_to {
             target_move_event_writer.send(TargetMoveEvent {

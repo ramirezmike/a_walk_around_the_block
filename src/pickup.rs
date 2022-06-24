@@ -41,6 +41,11 @@ pub enum PickupType {
     Coin
 }
 
+pub fn dog() -> (Pickup, String) {
+    let pickup = Pickup::new(bot::PetType::Dog);
+    (pickup, "models/dog.glb#Scene0".to_string())
+}
+
 pub fn make_random_pet() -> (Pickup, String) {
     let mut rng = thread_rng();
     let pet_types = vec!(bot::PetType::Chicken, bot::PetType::Dog, bot::PetType::ChickenDog);
@@ -68,14 +73,14 @@ fn handle_pickup_event(
 ) {
     for event in pickup_event_reader.iter() {
         commands.entity(event.entity).despawn_recursive();
-        audio.play_sfx(&game_assets.pickup);
 
-        match event.pickup_type {
-            PickupType::Coin => {
-                game_state.score += 10;
-            },
-            PickupType::Pet(pet) => {
-                if let Ok((player_entity, mut player, player_transform)) = players.get_single_mut() {
+        if let Ok((player_entity, mut player, player_transform)) = players.get_single_mut() {
+            match event.pickup_type {
+                PickupType::Coin => {
+                    audio.play_sfx(&game_assets.pickup);
+                    game_state.score += 1 * (player.number_of_pets() + 1);
+                },
+                PickupType::Pet(pet) => {
                     if !player.looking_for_pets() {
                         continue;
                     }
@@ -126,7 +131,7 @@ fn handle_pickup_event(
                             .insert_bundle(bot::BotBundle::new())
                             .insert(CleanupMarker)
                             .insert(bot::Pet {
-                                pet_type: bot::PetType::Chicken,
+                                pet_type: pet,
                             })
                             .insert(leash::Anchor {
                                 parent: Some(player_entity),
@@ -135,8 +140,8 @@ fn handle_pickup_event(
                             .id();
                         player.add_pet(chicken_id);
                     }
-                }
-            },
+                },
+            }
         }
     }
 }

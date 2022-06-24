@@ -211,30 +211,34 @@ fn load_new_chunks(
 
                     if let Ok(player) = players.get_single() {
                         if player.looking_for_pets() {
-                            for _ in 0..10 {
-                                let spot = get_random_spot(min_x, max_x, min_z, max_z);
-                                let (pickup, model) = pickup::make_random_pet();
+                            let x = c.position.x * (CHUNK_SIZE as f32);
+                            let z = c.position.y * CHUNK_SIZE as f32;
+                            let (pickup, model) = 
+                                if x == 0.0 && z == 0.0 {
+                                    pickup::dog()
+                                } else {
+                                    pickup::make_random_pet()
+                                };
 
-                                commands
-                                    .spawn_bundle((
-                                        Transform::from_xyz(spot.x, 0.0, spot.y),
-                                        GlobalTransform::identity(),
-                                    ))
-                                    .with_children(|parent| {
-                                        parent
-                                            .spawn_bundle((
-                                                Transform::from_rotation(Quat::from_rotation_y(
-                                                    std::f32::consts::FRAC_PI_2,
-                                                )),
-                                                GlobalTransform::identity(),
-                                            ))
-                                            .with_children(|parent| {
-                                                parent.spawn_scene(asset_server.load(&model));
-                                            });
-                                    })
-                                    .insert(CleanupMarker)
-                                    .insert(pickup);
-                            }
+                            commands
+                                .spawn_bundle((
+                                    Transform::from_xyz(x, 0.0, z),
+                                    GlobalTransform::identity(),
+                                ))
+                                .with_children(|parent| {
+                                    parent
+                                        .spawn_bundle((
+                                            Transform::from_rotation(Quat::from_rotation_y(
+                                                std::f32::consts::FRAC_PI_2,
+                                            )),
+                                            GlobalTransform::identity(),
+                                        ))
+                                        .with_children(|parent| {
+                                            parent.spawn_scene(asset_server.load(&model));
+                                        });
+                                })
+                                .insert(CleanupMarker)
+                                .insert(pickup);
                         }
                     }
 

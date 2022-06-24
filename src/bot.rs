@@ -1,4 +1,4 @@
-use crate::{collision, leash, player, player::PlayerAction, target, AppState};
+use crate::{collision, leash, player, player::PlayerAction, target, AppState, };
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
 use bevy_mod_raycast::{
@@ -13,7 +13,7 @@ pub struct BotPlugin;
 impl Plugin for BotPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
-            SystemSet::on_update(AppState::InGame).with_system(update_bot_ai.label("ai")),
+            SystemSet::on_update(AppState::InGame).with_system(update_bot_ai.label("ai").after("input")),
         );
     }
 }
@@ -42,6 +42,16 @@ impl Bot {
 #[derive(Component)]
 pub struct Pet {
     pub pet_type: PetType,
+}
+
+impl Pet {
+    fn get_targets(&self) -> Vec::<target::TargetType> {
+        match self.pet_type {
+            PetType::Chicken => vec!(target::TargetType::Person, target::TargetType::Worm),
+            PetType::Dog => vec!(target::TargetType::Person, target::TargetType::Chip),
+            PetType::ChickenDog => vec!(target::TargetType::Person, target::TargetType::Chip, target::TargetType::Worm),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -75,10 +85,10 @@ impl BotBundle {
 fn update_bot_ai(
     time: Res<Time>,
     mut bots: Query<
-        (Entity, &mut Bot, &Transform),
+        (Entity, &mut Bot, &Transform, &Pet),
         (Without<leash::PathObstacle>, Without<target::Target>),
     >,
-    targets: Query<(Entity, &Transform), (With<target::Target>, Without<Bot>)>,
+    targets: Query<(Entity, &Transform, &target::Target), Without<Bot>>,
     player: Query<&Transform, (With<player::Player>, Without<Bot>)>,
     obstacles: Query<
         (&Handle<Mesh>, &Transform, &Aabb, &GlobalTransform),
@@ -86,21 +96,36 @@ fn update_bot_ai(
     >,
     meshes: Res<Assets<Mesh>>,
     mut player_move_event_writer: EventWriter<player::PlayerMoveEvent>,
+    mut target_hit_event_writer: EventWriter<target::TargetHitEvent>,
 ) {
-    for (entity, mut bot, bot_transform) in bots.iter_mut() {
+    for (entity, mut bot, bot_transform, pet) in bots.iter_mut() {
         // handling mind cool down
         bot.mind_cooldown -= time.delta_seconds();
         bot.mind_cooldown = bot.mind_cooldown.clamp(-10.0, 30.0);
 
         bot.target = None;
 
-        for (_, target_transform) in targets.iter() {
+        let seeking_targets = pet.get_targets();
+        for (target_entity, target_transform, target) in targets.iter() {
+            if !seeking_targets.contains(&target.target_type) {
+                continue;
+            }
+
             let from = bot_transform.translation;
             let to = target_transform.translation;
+            let mut closest_hit = (to - from).length();
+
+            if closest_hit > 10.0 {
+                continue;
+            }
+
+            if closest_hit < 1.5 {
+                target_hit_event_writer.send(target::TargetHitEvent { entity: target_entity, hit_by: pet.pet_type });
+            }
+
             let ray_direction = (to - from).normalize();
 
             let ray = Ray3d::new(from, ray_direction);
-            let mut closest_hit = (to - from).length();
             let mut obstacle_exists = false;
 
             for (mesh_handle, transform, aabb, global_transform) in obstacles.iter() {

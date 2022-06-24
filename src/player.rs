@@ -194,6 +194,24 @@ impl Player {
         }
     }
 
+    pub fn number_of_pets(&self) -> usize {
+        let mut number = 0;
+        if self.south_pet.is_some() {
+            number += 1; 
+        }
+        if self.east_pet.is_none() {
+            number += 1; 
+        }
+        if self.west_pet.is_none() {
+            number += 1; 
+        }
+        if self.north_pet.is_none() {
+            number += 1; 
+        }
+
+        number 
+    }
+
     pub fn add_pet(&mut self, pet: Entity) {
         if self.south_pet.is_none() {
             self.south_pet = Some(pet);
