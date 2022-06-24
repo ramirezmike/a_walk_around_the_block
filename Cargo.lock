@@ -3,6 +3,20 @@
 version = 3
 
 [[package]]
+name = "a_walk_around_the_block"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_infinite_grid",
+ "bevy_kira_audio",
+ "bevy_mod_raycast",
+ "leafwing-input-manager",
+ "noise",
+ "rand 0.8.5",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2519,20 +2533,6 @@ name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
-
-[[package]]
-name = "pet_wants"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_infinite_grid",
- "bevy_kira_audio",
- "bevy_mod_raycast",
- "leafwing-input-manager",
- "noise",
- "rand 0.8.5",
- "uuid 1.1.2",
-]
 
 [[package]]
 name = "petgraph"

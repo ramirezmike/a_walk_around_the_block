@@ -57,12 +57,23 @@ fn setup(
         brightness: 0.50,
     });
 
-    let mut player = commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube::default())),
-        material: materials.add(Color::GREEN.into()),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..Default::default()
-    })
+    let mut player = commands
+        .spawn_bundle((
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            GlobalTransform::identity(),
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn_bundle((
+                    Transform::from_rotation(Quat::from_rotation_y(
+                        std::f32::consts::FRAC_PI_2,
+                    )),
+                    GlobalTransform::identity(),
+                ))
+                .with_children(|parent| {
+                    parent.spawn_scene(asset_server.load("models/person.glb#Scene0"));
+                });
+            })
             .insert(leash::Anchor {
                 parent: None,
                 leash: None,

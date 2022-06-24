@@ -199,13 +199,13 @@ impl Player {
         if self.south_pet.is_some() {
             number += 1; 
         }
-        if self.east_pet.is_none() {
+        if self.east_pet.is_some() {
             number += 1; 
         }
-        if self.west_pet.is_none() {
+        if self.west_pet.is_some() {
             number += 1; 
         }
-        if self.north_pet.is_none() {
+        if self.north_pet.is_some() {
             number += 1; 
         }
 

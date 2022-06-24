@@ -25,7 +25,6 @@ pub struct TargetMoveEvent {
 pub struct TargetHitEvent {
     pub entity: Entity,
     pub hit_by: bot::PetType
-
 }
 
 fn handle_target_hit_event(
@@ -102,6 +101,7 @@ pub struct Target {
     pub hit_cooldown: f32,
     pub health: usize,
     pub heading_to: Option::<Vec2>,
+    pub ignore: bool,
 }
 
 impl Target {
@@ -121,6 +121,7 @@ impl Target {
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
                     health: 5,
+                    ignore: false,
                 }
             },
             TargetType::Worm => {
@@ -135,6 +136,7 @@ impl Target {
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
                     health: 1,
+                    ignore: false,
                 }
             },
             TargetType::Chip => {
@@ -149,6 +151,7 @@ impl Target {
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
                     health: 2,
+                    ignore: false,
                 }
             },
         }
@@ -167,6 +170,7 @@ impl Target {
             TargetType::Person => {
                 match hit_by {
                     bot::PetType::Dog => {
+                        self.ignore = true;
                         TargetHitResponse::ScoreUp("Aww!".to_string(), 100, Color::GREEN, standard_time, false)
                     },
                     bot::PetType::Chicken => {
@@ -191,7 +195,7 @@ impl Target {
                         if self.health == 0 {
                             TargetHitResponse::ScoreDown("-100".to_string(), 100, Color::RED, standard_time, true)
                         } else {
-                            TargetHitResponse::Nothing
+                            TargetHitResponse::Text("*sad chipmunk noise*".to_string(), Color::RED, standard_time)
                         }
                     },
                     bot::PetType::Chicken => TargetHitResponse::Nothing,
@@ -211,7 +215,7 @@ impl Target {
                         if self.health == 0 {
                             TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
                         } else {
-                            TargetHitResponse::Nothing
+                            TargetHitResponse::Text("*wormy noises*".to_string(), Color::DARK_GREEN, standard_time)
                         }
                     },
                 }

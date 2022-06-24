@@ -1,4 +1,4 @@
-use crate::{AppState, player, bot, game_state, leash, audio, assets::GameAssets, CleanupMarker};
+use crate::{AppState, player, bot, game_state, leash, audio, assets::GameAssets, CleanupMarker, follow_text};
 use bevy::prelude::*;
 use bevy::gltf::Gltf;
 use rand::seq::SliceRandom;
@@ -69,6 +69,7 @@ fn handle_pickup_event(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut game_state: ResMut<game_state::GameState>,
+    mut follow_text_event_writer: EventWriter<follow_text::FollowTextEvent>,
     mut players: Query<(Entity, &mut player::Player, &Transform), Without<bot::Bot>>,
 ) {
     for event in pickup_event_reader.iter() {
@@ -78,7 +79,14 @@ fn handle_pickup_event(
             match event.pickup_type {
                 PickupType::Coin => {
                     audio.play_sfx(&game_assets.pickup);
-                    game_state.score += 1 * (player.number_of_pets() + 1);
+                    let points = 1 * (player.number_of_pets() + 1);
+                    game_state.score += points;
+                    follow_text_event_writer.send(follow_text::FollowTextEvent {
+                        follow: follow_text::FollowThing::Spot(player_transform.translation),
+                        text: format!("+{}", points),
+                        color: Color::YELLOW,
+                        time_to_live: 2.0,
+                    });
                 },
                 PickupType::Pet(pet) => {
                     if !player.looking_for_pets() {
@@ -139,6 +147,13 @@ fn handle_pickup_event(
                             })
                             .id();
                         player.add_pet(chicken_id);
+
+                        follow_text_event_writer.send(follow_text::FollowTextEvent {
+                            follow: follow_text::FollowThing::Spot(player_transform.translation),
+                            text: "Got A Pet".to_string(),
+                            color: leash_color,
+                            time_to_live: 2.0,
+                        });
                     }
                 },
             }

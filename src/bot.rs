@@ -54,7 +54,7 @@ impl Pet {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum PetType {
     Chicken,
     Dog,
@@ -107,7 +107,7 @@ fn update_bot_ai(
 
         let seeking_targets = pet.get_targets();
         for (target_entity, target_transform, target) in targets.iter() {
-            if !seeking_targets.contains(&target.target_type) {
+            if (target.ignore && pet.pet_type == PetType::Dog) || !seeking_targets.contains(&target.target_type) {
                 continue;
             }
 
