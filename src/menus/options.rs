@@ -52,12 +52,14 @@ enum OptionChange {
 #[derive(Default)]
 pub struct OptionState {
     game_length: usize,
+    music_on: usize,
 }
 
 impl OptionState {
     pub fn initialize() -> Self {
         OptionState {
             game_length: 0,
+            music_on: 0,
         }
     }
 }
@@ -185,6 +187,63 @@ fn setup(
             parent
                 .spawn_bundle(NodeBundle {
                     style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Percent(15.0)),
+                        position_type: PositionType::Relative,
+                        align_items: AlignItems::FlexEnd,
+                        ..Default::default()
+                    },
+                    color: Color::NONE.into(),
+                    ..Default::default()
+                })
+                .insert(OptionRow { row: 1 })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(50.0), Val::Percent(100.0)),
+                                position_type: PositionType::Relative,
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::FlexEnd,
+                                ..Default::default()
+                            },
+                            color: Color::NONE.into(),
+                            ..Default::default()
+                        })
+                        .with_children(|parent| {
+                            add_label(
+                                parent,
+                                game_assets.font.clone(),
+                                text_scaler.scale(menus::DEFAULT_FONT_SIZE),
+                                "Music      :",
+                                vec![OptionRow { row: 1 }],
+                            );
+                        });
+
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(50.0), Val::Percent(100.0)),
+                                position_type: PositionType::Relative,
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::FlexEnd,
+                                ..Default::default()
+                            },
+                            color: Color::NONE.into(),
+                            ..Default::default()
+                        })
+                        .with_children(|parent| {
+                            add_option(
+                                parent,
+                                game_assets.font.clone(),
+                                text_scaler.scale(menus::SCORE_FONT_SIZE),
+                                vec![OptionRow { row: 1 }],
+                            );
+                        });
+                });
+
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
                         size: Size::new(Val::Percent(40.0), Val::Percent(20.0)),
                         position_type: PositionType::Relative,
                         margin: Rect {
@@ -200,14 +259,14 @@ fn setup(
                     color: Color::NONE.into(),
                     ..Default::default()
                 })
-                .insert(OptionRow { row: 1 })
+                .insert(OptionRow { row: 2 })
                 .with_children(|parent| {
                     add_button(
                         parent,
                         game_assets.font.clone(),
                         text_scaler.scale(menus::SCORE_FONT_SIZE),
                         "Let's Walk!",
-                        vec![OptionRow { row: 1 }],
+                        vec![OptionRow { row: 2 }],
                     );
                 });
         });
@@ -450,7 +509,7 @@ fn update_menu_buttons(
     mut option_change_event_writer: EventWriter<OptionChangeEvent>,
 ) {
     let action_state = action_state.single();
-    let max_options = 1;
+    let max_options = 2;
 
     if action_state.just_pressed(MenuAction::Up) {
         audio.play_sfx(&game_assets.blip);
@@ -544,8 +603,25 @@ fn handle_option_changes(
                 };
             },
             1 => {
+                let min = 0;
+                let max = 1;
+                match option_change.action {
+                    OptionChange::Increase => {
+                        options.music_on = if options.music_on == max { min } 
+                                           else { max };
+                        audio.play_sfx(&game_assets.blip);
+                    }
+                    OptionChange::Decrease => {
+                        options.music_on = if options.music_on == max { min } 
+                                           else { max };
+                        audio.play_sfx(&game_assets.blip);
+                    }
+                    _ => (),
+                };
+            },
+            2 => {
                 if let OptionChange::Select = option_change.action {
-                    *game_state = game_state::GameState::initialize(options.game_length);
+                    *game_state = game_state::GameState::initialize(options.game_length, options.music_on == 0);
 
                     audio.play_sfx(&game_assets.blip);
                     assets_handler.load(AppState::InGame, &mut game_assets);
@@ -566,6 +642,13 @@ fn display_current_options(
                 0 => " 5 minutes".to_string(),
                 1 => "10 minutes".to_string(),
                 _ => "20 minutes".to_string(),
+            };
+        }
+
+        if option_row.row == 1 {
+            option_text.sections[0].value = match option_state.music_on {
+                0 => "On ".to_string(),
+                _ => "Off".to_string(),
             };
         }
     }

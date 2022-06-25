@@ -1,4 +1,4 @@
-use crate::{bot, collision, direction, leash, AppState, game_state, ingame_ui};
+use crate::{bot, collision, direction, leash, AppState, game_state, ingame_ui, game_controller};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
@@ -11,6 +11,7 @@ impl Plugin for PlayerPlugin {
             .add_event::<PlayerMoveEvent>()
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .with_system(handle_controllers.before("input"))
                     .with_system(handle_input.label("input"))
                     .with_system(move_player.label("move_player").after("input")),
             );
@@ -42,6 +43,7 @@ fn move_player(
     mut players: Query<(Entity, &mut Transform, &mut Player)>,
     mut player_move_event_reader: EventReader<PlayerMoveEvent>,
     collidables: collision::Collidables,
+    game_state: Res<game_state::GameState>,
 ) {
     let mut move_events = HashMap::new();
     for move_event in player_move_event_reader.iter() {
@@ -49,7 +51,7 @@ fn move_player(
     }
 
     for (entity, mut transform, mut player) in players.iter_mut() {
-        let speed: f32 = player.speed;
+        let speed: f32 = player.speed * game_state.game_speed;
         let rotation_speed: f32 = player.rotation_speed;
         let friction: f32 = player.friction;
 
@@ -140,7 +142,6 @@ pub enum PlayerAction {
     ActionDown,
     ActionLeft,
     ActionRight,
-    Pause,
 }
 
 impl PlayerAction {
@@ -308,9 +309,6 @@ impl PlayerBundle {
         input_map.insert(ActionRight, KeyCode::L);
         input_map.insert(ActionRight, GamepadButtonType::East);
 
-        // Other
-        input_map.insert(Pause, KeyCode::Escape);
-
         input_map
     }
 }
@@ -318,6 +316,76 @@ impl PlayerBundle {
 pub struct PlayerMoveEvent {
     pub entity: Entity,
     pub movement: Movement,
+}
+
+fn handle_controllers(
+    controllers: Res<game_controller::GameController>,
+    game_state: Res<game_state::GameState>,
+    mut players: Query<(Entity, &mut ActionState<PlayerAction>), (With<Player>, Without<bot::Bot>)>,
+) {
+    for (_, mut action_state) in players.iter_mut() {
+        for (_, pressed) in controllers.pressed.iter() {
+            // release all buttons
+            // this probably affects durations but for
+            // this game it might not be a big deal
+            action_state.release(PlayerAction::Left);
+            action_state.release(PlayerAction::Right);
+            action_state.release(PlayerAction::Up);
+            action_state.release(PlayerAction::Down);
+
+            if pressed.contains(&game_controller::GameButton::Left) {
+                action_state.press(PlayerAction::Left);
+            }
+            if pressed.contains(&game_controller::GameButton::Right) {
+                action_state.press(PlayerAction::Right);
+            }
+            if pressed.contains(&game_controller::GameButton::Up) {
+                action_state.press(PlayerAction::Up);
+            }
+            if pressed.contains(&game_controller::GameButton::Down) {
+                action_state.press(PlayerAction::Down);
+            }
+            if pressed.contains(&game_controller::GameButton::ActionDown) {
+                action_state.press(PlayerAction::ActionDown);
+            } else {
+                action_state.release(PlayerAction::ActionDown);
+            }
+            if pressed.contains(&game_controller::GameButton::ActionUp) {
+                action_state.press(PlayerAction::ActionUp);
+            } else {
+                action_state.release(PlayerAction::ActionUp);
+            }
+            if pressed.contains(&game_controller::GameButton::ActionLeft) {
+                action_state.press(PlayerAction::ActionLeft);
+            } else {
+                action_state.release(PlayerAction::ActionLeft);
+            }
+            if pressed.contains(&game_controller::GameButton::ActionRight) {
+                action_state.press(PlayerAction::ActionRight);
+            } else {
+                action_state.release(PlayerAction::ActionRight);
+            }
+        }
+
+        for (_, just_pressed) in controllers.just_pressed.iter() {
+            if just_pressed.contains(&game_controller::GameButton::ActionUp) {
+                action_state.release(PlayerAction::ActionUp);
+                action_state.press(PlayerAction::ActionUp);
+            }
+            if just_pressed.contains(&game_controller::GameButton::ActionDown) {
+                action_state.release(PlayerAction::ActionDown);
+                action_state.press(PlayerAction::ActionDown);
+            }
+            if just_pressed.contains(&game_controller::GameButton::ActionRight) {
+                action_state.release(PlayerAction::ActionRight);
+                action_state.press(PlayerAction::ActionRight);
+            }
+            if just_pressed.contains(&game_controller::GameButton::ActionLeft) {
+                action_state.release(PlayerAction::ActionLeft);
+                action_state.press(PlayerAction::ActionLeft);
+            }
+        }
+    }
 }
 
 pub enum Movement {
@@ -352,10 +420,6 @@ fn handle_input(
                 entity,
                 movement: Movement::Normal(direction),
             });
-        }
-
-        if action_state.just_pressed(PlayerAction::Pause) {
-            app_state.push(AppState::Pause).unwrap();
         }
 
         if action_state.just_pressed(PlayerAction::ActionUp) {

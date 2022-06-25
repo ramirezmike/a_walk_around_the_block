@@ -1,4 +1,4 @@
-use crate::{assets::GameAssets, bot, component_adder, pickup, player, AppState, CleanupMarker, target};
+use crate::{assets::GameAssets, bot, component_adder, pickup, player, AppState, CleanupMarker, target, audio, follow_text};
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -15,6 +15,7 @@ impl Plugin for GameStatePlugin {
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_chunk.label("update_chunks"))
                     .with_system(update_timer)
+                    .with_system(update_game_speed)
                     .with_system(
                         handle_despawn_chunk_events
                             .label("despawn_chunks")
@@ -25,17 +26,44 @@ impl Plugin for GameStatePlugin {
     }
 }
 
+fn update_game_speed(
+    mut follow_text_event_writer: EventWriter<follow_text::FollowTextEvent>,
+    mut game_state: ResMut<GameState>,
+    game_assets: Res<GameAssets>,
+    mut audio: audio::GameAudio,
+    mut players: Query<Entity, (With<player::Player>, Without<bot::Bot>)>,
+) {
+    let speed_increment = 0.1;
+    let score_boundary = 1000;
+    let next_boundary = (((game_state.game_speed - 1.0) * 10.0) as usize * score_boundary) + score_boundary;
+
+    if let Ok(entity) = players.get_single() {
+        if game_state.score >= next_boundary {
+            game_state.game_speed += speed_increment;
+            audio.play_sfx(&game_assets.powerup);
+            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                follow: follow_text::FollowThing::Entity(entity),
+                text: "LEVEL UP".to_string(),
+                color: Color::GREEN,
+                time_to_live: 2.0,
+            });
+        }
+    }
+}
+
 pub struct GameState {
     pub current_chunk: Vec2,
     pub game_length: usize,
     pub yank_strength: f32,
     pub score: usize,
     pub current_time: f32,
-    pub lost_pet: bool
+    pub lost_pet: bool,
+    pub game_speed: f32,
+    pub music_on: bool 
 }
 
 impl GameState {
-    pub fn initialize(game_length: usize) -> Self {
+    pub fn initialize(game_length: usize, music_on: bool) -> Self {
         let game_length = match game_length {
             0 => 5,
             1 => 10,
@@ -48,7 +76,9 @@ impl GameState {
             yank_strength: 10.0,
             score: 0,
             lost_pet: false,
-            current_time: (game_length * 60) as f32
+            current_time: (game_length * 60) as f32,
+            game_speed: 1.0,
+            music_on: music_on
         }
     }
 }
@@ -61,7 +91,9 @@ impl Default for GameState {
             game_length: 5,
             score: 0,
             lost_pet: false,
-            current_time: (5 * 60) as f32
+            current_time: (5 * 60) as f32,
+            game_speed: 1.0,
+            music_on: true,
         }
     }
 }
@@ -128,7 +160,7 @@ fn handle_despawn_chunk_events(
     mut game_state: ResMut<GameState>,
 ) {
     for event in despawn_chunk_event_reader.iter() {
-        commands.entity(event.chunk_entity).despawn_recursive();
+        commands.get_or_spawn(event.chunk_entity).despawn_recursive();
         //println!("Despawning {:?}", event.chunk_position);
 
         for (entity, transform) in entities.iter() {
@@ -141,7 +173,7 @@ fn handle_despawn_chunk_events(
 
                     return;
                 } else {
-                    commands.entity(entity).despawn_recursive();
+                    commands.get_or_spawn(entity).despawn_recursive();
                 }
             }
         }
@@ -233,7 +265,7 @@ fn load_new_chunks(
                     let max_x = (c.position.x * (CHUNK_SIZE as f32)) + (CHUNK_SIZE as f32 / 2.0);
                     let min_z = (c.position.y * (CHUNK_SIZE as f32)) - (CHUNK_SIZE as f32 / 2.0);
                     let max_z = (c.position.y * (CHUNK_SIZE as f32)) + (CHUNK_SIZE as f32 / 2.0);
-                    for _ in 0..20 {
+                    for _ in 0..10 {
                         let spot = get_random_spot(min_x, max_x, min_z, max_z);
                         let (target, model) = target::make_random_target(&game_assets);
 
@@ -295,7 +327,7 @@ fn load_new_chunks(
                         }
                     }
 
-                    for _ in 0..100 {
+                    for _ in 0..50 {
                         let spot = get_random_spot(min_x, max_x, min_z, max_z);
                         commands
                             .spawn_bundle(PbrBundle {

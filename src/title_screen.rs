@@ -71,7 +71,6 @@ pub fn load(
     game_assets: &mut ResMut<GameAssets>,
 ) {
     assets_handler.add_audio(&mut game_assets.titlescreen, "audio/titlescreen.ogg");
-    assets_handler.add_audio(&mut game_assets.game_music, "audio/happy_panda.ogg");
     assets_handler.add_audio(&mut game_assets.blip, "audio/blip.wav");
     assets_handler.add_font(&mut game_assets.font, "fonts/monogram.ttf");
     assets_handler.add_material(
@@ -140,6 +139,7 @@ fn setup(
             parent.spawn_bundle(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     // Configure the projection to better fit the scene
+                    //illuminance: 50000.0,
                     shadow_projection: OrthographicProjection {
                         left: -HALF_SIZE,
                         right: HALF_SIZE,

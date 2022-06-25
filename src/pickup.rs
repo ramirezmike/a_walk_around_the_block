@@ -9,17 +9,56 @@ pub struct PickupPlugin;
 impl Plugin for PickupPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PickupEvent>()
+            .add_event::<CreatePoopEvent>()
             .add_system_set(SystemSet::on_update(AppState::InGame)
                             .with_system(update_pickups)
                             .with_system(handle_pickup_event)
+                            .with_system(handle_create_poop_event)
                             .with_system(animate_pickups)
                             );
     }
 }
 
+pub struct CreatePoopEvent {
+    pub spot: Vec3
+}
+
 pub struct PickupEvent {
     entity: Entity,
     pickup_type: PickupType 
+}
+
+fn handle_create_poop_event(
+    mut commands: Commands,
+    mut create_poop_event_reader: EventReader<CreatePoopEvent>,
+    assets_gltf: Res<Assets<Gltf>>,
+    game_assets: Res<GameAssets>,
+) {
+    for event in create_poop_event_reader.iter() {
+        if let Some(gltf) = assets_gltf.get(game_assets.poop.clone()) {
+            commands
+                .spawn_bundle((
+                    Transform::from_translation(event.spot),
+                    GlobalTransform::identity(),
+                ))
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle((
+                            Transform::from_rotation(Quat::from_rotation_y(
+                                std::f32::consts::FRAC_PI_2,
+                            )),
+                            GlobalTransform::identity(),
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn_scene(gltf.scenes[0].clone());
+                        });
+                })
+                .insert(CleanupMarker)
+                .insert(Pickup {
+                    pickup_type: PickupType::Poop
+                });
+        }
+    }
 }
 
 #[derive(Component)]
@@ -38,7 +77,8 @@ impl Pickup {
 #[derive(Clone, Copy)]
 pub enum PickupType {
     Pet(bot::PetType),
-    Coin
+    Coin,
+    Poop,
 }
 
 pub fn dog(game_assets: &Res<GameAssets>) -> (Pickup, Handle<Gltf>) {
@@ -79,12 +119,23 @@ fn handle_pickup_event(
             match event.pickup_type {
                 PickupType::Coin => {
                     audio.play_sfx(&game_assets.pickup);
-                    let points = 1 * (player.number_of_pets() + 1);
+                    let points = 10 * (player.number_of_pets() + 1);
                     game_state.score += points;
+
                     follow_text_event_writer.send(follow_text::FollowTextEvent {
                         follow: follow_text::FollowThing::Spot(player_transform.translation),
                         text: format!("+{}", points),
                         color: Color::YELLOW,
+                        time_to_live: 2.0,
+                    });
+                },
+                PickupType::Poop => {
+                    game_state.score += 100;
+                    audio.play_sfx(&game_assets.powerup);
+                    follow_text_event_writer.send(follow_text::FollowTextEvent {
+                        follow: follow_text::FollowThing::Spot(player_transform.translation),
+                        text: "Good Citizen! +100".to_string(),
+                        color: Color::GREEN,
                         time_to_live: 2.0,
                     });
                 },
@@ -93,6 +144,7 @@ fn handle_pickup_event(
                         continue;
                     }
 
+                    audio.play_sfx(&game_assets.powerup);
                     let leash_color = player.get_next_leash_color();
 
                     let model = match pet {

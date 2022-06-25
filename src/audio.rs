@@ -26,12 +26,16 @@ pub struct GameAudio<'w, 's> {
 impl<'w, 's> GameAudio<'w, 's> {
     pub fn play_bgm(&mut self, handle: &Handle<AudioSource>) {
         self.music_channel.stop();
-        self.music_channel.set_volume(0.5);
+        self.music_channel.set_volume(0.7);
         self.music_channel.play_looped(handle.clone());
     }
 
+    pub fn stop_bgm(&mut self) {
+        self.music_channel.stop();
+    }
+
     pub fn play_sfx(&mut self, handle: &Handle<AudioSource>) {
-        self.sound_channel.set_volume(0.5);
+        self.sound_channel.set_volume(0.2);
         self.sound_channel.play(handle.clone());
     }
 }

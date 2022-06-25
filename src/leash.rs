@@ -79,7 +79,7 @@ fn update_leashes(
                             .normalize();
 
                         leash.scale = Vec3::new(diff / 2.0, 0.05, 0.05);
-                        leash.translation = middle;
+                        leash.translation = Vec3::new(middle.x, 1.0, middle.z);
 
                         // Rotate the direction indicator
                         if Vec3::Z.angle_between(direction) > FRAC_PI_2 {

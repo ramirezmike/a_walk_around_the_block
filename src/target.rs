@@ -1,4 +1,4 @@
-use crate::{AppState, collision, player::ZeroSignum, follow_text, bot, game_state, audio, assets::GameAssets};
+use crate::{AppState, collision, player, player::ZeroSignum, follow_text, bot, game_state, audio, assets::GameAssets};
 use bevy::prelude::*;
 use rand::Rng;
 use bevy::gltf::Gltf;
@@ -33,60 +33,84 @@ fn handle_target_hit_event(
     mut target_hit_event_reader: EventReader<TargetHitEvent>,
     mut follow_text_event_writer: EventWriter<follow_text::FollowTextEvent>,
     mut targets: Query<(Entity, &mut Target, &Transform)>,
+    players: Query<Entity, (With<player::Player>, Without<bot::Bot>)>,
     mut game_state: ResMut<game_state::GameState>,
     mut audio: audio::GameAudio,
     game_assets: Res<GameAssets>,
 ) { 
     for event in target_hit_event_reader.iter() {
-        if let Ok((target_entity, mut target, target_transform)) = targets.get_mut(event.entity) {
-            match target.hit_and_response(event.hit_by, &mut audio, &game_assets) {
-                TargetHitResponse::Text(text, color, ttl) => {
-                    follow_text_event_writer.send(follow_text::FollowTextEvent {
-                        follow: follow_text::FollowThing::Entity(event.entity),
-                        text: text,
-                        color: color,
-                        time_to_live: ttl,
-                    });
-                },
-                TargetHitResponse::ScoreUp(text, score, color, ttl, death) => {
-                    game_state.score += score;
-                    if death {
-                        commands.entity(target_entity).despawn_recursive();
-                        follow_text_event_writer.send(follow_text::FollowTextEvent {
-                            follow: follow_text::FollowThing::Spot(target_transform.translation),
-                            text: text,
-                            color: color,
-                            time_to_live: ttl,
-                        });
-                    } else {
+        if let Ok(player_entity) = players.get_single() {
+            if let Ok((target_entity, mut target, target_transform)) = targets.get_mut(event.entity) {
+                match target.hit_and_response(event.hit_by, &mut audio, &game_assets, &game_state) {
+                    TargetHitResponse::Text(text, color, ttl) => {
                         follow_text_event_writer.send(follow_text::FollowTextEvent {
                             follow: follow_text::FollowThing::Entity(event.entity),
                             text: text,
                             color: color,
                             time_to_live: ttl,
                         });
-                    }
-                },
-                TargetHitResponse::ScoreDown(text, score, color, ttl, death) => {
-                    game_state.score = game_state.score.saturating_sub(score);
-                    if death {
-                        commands.entity(target_entity).despawn_recursive();
-                        follow_text_event_writer.send(follow_text::FollowTextEvent {
-                            follow: follow_text::FollowThing::Spot(target_transform.translation),
-                            text: text,
-                            color: color,
-                            time_to_live: ttl,
-                        });
-                    } else {
-                        follow_text_event_writer.send(follow_text::FollowTextEvent {
-                            follow: follow_text::FollowThing::Entity(event.entity),
-                            text: text,
-                            color: color,
-                            time_to_live: ttl,
-                        });
-                    }
-                },
-                TargetHitResponse::Nothing => ()
+                    },
+                    TargetHitResponse::ScoreUp(text, score, color, ttl, death) => {
+                        game_state.score += score;
+                        if death {
+                            commands.entity(target_entity).despawn_recursive();
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Spot(target_transform.translation),
+                                text: text,
+                                color: color,
+                                time_to_live: ttl,
+                            });
+                        } else {
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Entity(event.entity),
+                                text: text,
+                                color: color,
+                                time_to_live: ttl,
+                            });
+
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Entity(player_entity),
+                                text: format!("+{}", score),
+                                color: Color::GREEN,
+                                time_to_live: 2.0,
+                            });
+                        }
+                    },
+                    TargetHitResponse::ScoreDown(text, score, color, ttl, death) => {
+                        game_state.score = game_state.score.saturating_sub(score);
+                        if death {
+                            commands.entity(target_entity).despawn_recursive();
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Spot(target_transform.translation),
+                                text: text,
+                                color: color,
+                                time_to_live: ttl,
+                            });
+
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Entity(player_entity),
+                                text: format!("-{}", score),
+                                color: Color::RED,
+                                time_to_live: 2.0,
+                            });
+                        } else {
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Entity(event.entity),
+                                text: text,
+                                color: color,
+                                time_to_live: ttl,
+                            });
+
+                            follow_text_event_writer.send(follow_text::FollowTextEvent {
+                                follow: follow_text::FollowThing::Entity(player_entity),
+                                text: format!("-{}", score),
+                                color: Color::RED,
+                                time_to_live: 2.0,
+                            });
+                        }
+                    },
+                    TargetHitResponse::Nothing => ()
+                }
             }
         }
     }
@@ -102,7 +126,7 @@ pub struct Target {
     pub target_type: TargetType,
     pub mind_cooldown: f32,
     pub hit_cooldown: f32,
-    pub health: usize,
+    pub health: f32,
     pub heading_to: Option::<Vec2>,
     pub ignore: bool,
 }
@@ -123,7 +147,7 @@ impl Target {
                     heading_to: None,
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
-                    health: 5,
+                    health: 5.0,
                     ignore: false,
                 }
             },
@@ -138,7 +162,7 @@ impl Target {
                     heading_to: None,
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
-                    health: 1,
+                    health: 1.0,
                     ignore: false,
                 }
             },
@@ -153,7 +177,7 @@ impl Target {
                     heading_to: None,
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
-                    health: 2,
+                    health: 2.0,
                     ignore: false,
                 }
             },
@@ -165,13 +189,14 @@ impl Target {
         hit_by: bot::PetType,
         mut audio: &mut audio::GameAudio,
         game_assets: &Res<GameAssets>,
+        game_state: &ResMut<game_state::GameState>,
     ) -> TargetHitResponse {
         // here we go!!
         if self.hit_cooldown >= 0.0 {
             return TargetHitResponse::Nothing;
         }
 
-        self.hit_cooldown = 2.0;
+        self.hit_cooldown = 1.0 / game_state.game_speed;
         let standard_time = 2.0;
 
         match self.target_type {
@@ -180,16 +205,16 @@ impl Target {
                     bot::PetType::Dog => {
                         self.ignore = true;
                         audio.play_sfx(&game_assets.powerup);
-                        TargetHitResponse::ScoreUp(get_happy_dog_msg(), 100, Color::GREEN, standard_time, false)
+                        TargetHitResponse::ScoreUp(get_happy_dog_msg(), 50, Color::GREEN, standard_time, false)
                     },
                     bot::PetType::Chicken => {
-                        TargetHitResponse::ScoreDown(get_angry_chicken_msg(), 100, Color::RED, standard_time, false)
+                        TargetHitResponse::ScoreDown(get_angry_chicken_msg(), 50, Color::RED, standard_time, false)
                     },
                     bot::PetType::ChickenDog => {
-                        self.health = self.health.saturating_sub(1);
+                        self.health -= 1.0 * game_state.game_speed;
 
                         audio.play_sfx(&game_assets.attack);
-                        if self.health == 0 {
+                        if self.health <= 0.0 {
                             TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
                         } else {
                             TargetHitResponse::Text(get_chicken_dog_msg(), Color::RED, standard_time)
@@ -200,21 +225,21 @@ impl Target {
             TargetType::Chip => {
                 match hit_by {
                     bot::PetType::Dog => {
-                        self.health = self.health.saturating_sub(1);
+                        self.health -= 1.0 * game_state.game_speed;
 
                         audio.play_sfx(&game_assets.attack);
-                        if self.health == 0 {
-                            TargetHitResponse::ScoreDown("-100".to_string(), 100, Color::RED, standard_time, true)
+                        if self.health <= 0.0 {
+                            TargetHitResponse::ScoreDown("*squeak*".to_string(), 100, Color::RED, standard_time, true)
                         } else {
                             TargetHitResponse::Text("*sad chipmunk noise*".to_string(), Color::RED, standard_time)
                         }
                     },
                     bot::PetType::Chicken => TargetHitResponse::Nothing,
                     bot::PetType::ChickenDog => {
-                        self.health = self.health.saturating_sub(1);
+                        self.health -= 1.0 * game_state.game_speed;
                         audio.play_sfx(&game_assets.attack);
 
-                        TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, self.health == 0)
+                        TargetHitResponse::ScoreUp("+50".to_string(), 50, Color::GREEN, standard_time, self.health <= 0.0)
                     },
                 }
             },
@@ -222,11 +247,11 @@ impl Target {
                 match hit_by {
                     bot::PetType::Dog => TargetHitResponse::Nothing,
                     bot::PetType::Chicken | bot::PetType::ChickenDog => {
-                        self.health = self.health.saturating_sub(1);
+                        self.health -= 1.0 * game_state.game_speed;
                         audio.play_sfx(&game_assets.attack);
 
-                        if self.health == 0 {
-                            TargetHitResponse::ScoreUp("+100".to_string(), 100, Color::GREEN, standard_time, true)
+                        if self.health <= 0.0 {
+                            TargetHitResponse::ScoreUp("+50".to_string(), 50, Color::GREEN, standard_time, true)
                         } else {
                             TargetHitResponse::Text("*wormy noises*".to_string(), Color::DARK_GREEN, standard_time)
                         }
@@ -248,7 +273,7 @@ pub fn make_random_target(game_assets: &Res<GameAssets>) -> (Target, Handle<Gltf
     let target = Target::new(*picked_type);
 
     match picked_type {
-        TargetType::Person => (target, game_assets.person.clone()),
+        TargetType::Person => (target, game_assets.get_random_player_model()),
         TargetType::Worm => (target, game_assets.worm.clone()),
         TargetType::Chip => (target, game_assets.chip.clone()),
     }
@@ -387,6 +412,18 @@ pub fn get_angry_chicken_msg() -> String {
         "get away!",
         "leave me alone!",
         "stop it!",
+        "Uhhhhhh",
+        "ew!",
+        "can you not?",
+        "what's that smell?",
+        "seriously, a chicken??",
+        "please stop",
+        "ok.. are you done?",
+        "get off me!",
+        "don't do that!",
+        "This is unpleasant",
+        "I didn't ask for this",
+        "I don't like this",
         "no!",
     );
 
@@ -401,6 +438,14 @@ pub fn get_chicken_dog_msg() -> String {
         "HELP!!",
         "IT'S EATING ME",
         "SAVE ME PLEASE!",
+        "*CRUNCHING SOUNDS*",
+        "MAKE IT STOP",
+        "OH NO, NOT AGAIN",
+        "I DON'T DESERVE THIS",
+        "WHY ME",
+        "NO NO NO",
+        "AHHHHHHH!",
+        "IS THIS REAL",
     );
 
     messages.choose(&mut rng).unwrap_or(&"AHHH").to_string()
@@ -409,10 +454,18 @@ pub fn get_chicken_dog_msg() -> String {
 pub fn get_happy_dog_msg() -> String {
     let mut rng = thread_rng();
     let messages = vec!(
-        "How cute!",
-        "A dog!",
-        "Can I pet you?",
-        "you're the best!",
+        "What a cute puppy",
+        "I'm happy now",
+        "That was great",
+        "Thank you!",
+        "Have a nice day",
+        "Sweet!",
+        "What a soft pupper",
+        "haha, neat",
+        "I petted that dog",
+        "What a treat!",
+        "Aww, that was nice",
+        "You're the best!",
     );
 
     messages.choose(&mut rng).unwrap_or(&"Aww!").to_string()

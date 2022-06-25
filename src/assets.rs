@@ -2,6 +2,8 @@ use crate::asset_loading;
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
 use bevy_kira_audio::AudioSource;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 pub struct AssetsPlugin;
 impl Plugin for AssetsPlugin {
@@ -16,7 +18,11 @@ pub struct GameAssets {
     pub chicken: Handle<Gltf>,
     pub dog: Handle<Gltf>,
     pub person: Handle<Gltf>,
+    pub person_02: Handle<Gltf>,
+    pub person_03: Handle<Gltf>,
+    pub person_04: Handle<Gltf>,
     pub chickendog: Handle<Gltf>,
+    pub poop: Handle<Gltf>,
     pub chip: Handle<Gltf>,
     pub worm: Handle<Gltf>,
     pub chunk: Handle<Gltf>,
@@ -35,6 +41,17 @@ pub struct GameAssets {
     pub title_screen_background: asset_loading::GameTexture,
     pub title_screen_logo: asset_loading::GameTexture,
 }
+
+impl GameAssets {
+    pub fn get_random_player_model(&self) -> Handle<Gltf> {
+        let mut rng = thread_rng();
+        let models = vec!(self.person.clone(), self.person_02.clone(), 
+                          self.person_03.clone(), self.person_04.clone());
+        let model = models.choose(&mut rng).unwrap_or(&self.person_03);
+        model.clone()
+    }
+}
+
 
 #[derive(Default)]
 pub struct GameMesh {

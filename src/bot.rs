@@ -1,4 +1,4 @@
-use crate::{collision, leash, player, player::PlayerAction, target, AppState, };
+use crate::{collision, leash, player, player::PlayerAction, target, AppState, pickup};
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
 use bevy_mod_raycast::{
@@ -27,7 +27,7 @@ pub struct Bot {
 impl Default for Bot {
     fn default() -> Self {
         Bot {
-            mind_cooldown: 0.0,
+            mind_cooldown: 30.0,
             target: None,
         }
     }
@@ -97,6 +97,7 @@ fn update_bot_ai(
     meshes: Res<Assets<Mesh>>,
     mut player_move_event_writer: EventWriter<player::PlayerMoveEvent>,
     mut target_hit_event_writer: EventWriter<target::TargetHitEvent>,
+    mut create_poop_event_writer: EventWriter<pickup::CreatePoopEvent>,
 ) {
     for (entity, mut bot, bot_transform, pet) in bots.iter_mut() {
         // handling mind cool down
@@ -155,8 +156,11 @@ fn update_bot_ai(
             });
         }
 
-        if !bot.can_think() {
-            continue;
+        if bot.can_think() && pet.pet_type == PetType::Dog {
+            bot.mind_cooldown = 30.0;
+            create_poop_event_writer.send(pickup::CreatePoopEvent {
+                spot: bot_transform.translation
+            });
         }
 
         if let Ok(player) = player.get_single() {
