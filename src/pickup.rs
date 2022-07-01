@@ -10,15 +10,19 @@ impl Plugin for PickupPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PickupEvent>()
             .add_event::<CreatePoopEvent>()
+            .add_event::<RemovePetPickupEvent>()
             .add_system_set(SystemSet::on_update(AppState::InGame)
                             .with_system(update_pickups)
                             .with_system(handle_pickup_event)
                             .with_system(handle_create_poop_event)
+                            .with_system(handle_remove_pet_pickup_event)
                             .with_system(animate_pickups)
                             );
     }
 }
 
+
+pub struct RemovePetPickupEvent;
 pub struct CreatePoopEvent {
     pub spot: Vec3
 }
@@ -74,7 +78,7 @@ impl Pickup {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum PickupType {
     Pet(bot::PetType),
     Coin,
@@ -111,6 +115,7 @@ fn handle_pickup_event(
     mut game_state: ResMut<game_state::GameState>,
     mut follow_text_event_writer: EventWriter<follow_text::FollowTextEvent>,
     mut players: Query<(Entity, &mut player::Player, &Transform), Without<bot::Bot>>,
+    mut remove_pet_pickup_event_writer: EventWriter<RemovePetPickupEvent>,
 ) {
     for event in pickup_event_reader.iter() {
         commands.entity(event.entity).despawn_recursive();
@@ -207,6 +212,11 @@ fn handle_pickup_event(
                             color: leash_color,
                             time_to_live: 2.0,
                         });
+
+
+                        if !player.looking_for_pets() {
+                            remove_pet_pickup_event_writer.send(RemovePetPickupEvent);
+                        }
                     }
                 },
             }
@@ -230,7 +240,7 @@ fn update_pickups(
         if let Ok(player_transform) = players.get_single() {
             for (entity, pickup_transform, pickup) in pickups.iter() {
                 if game_state::map_to_chunk(pickup_transform.translation) == game_state.current_chunk 
-                && player_transform.translation.distance(pickup_transform.translation) < 1.5 {
+                && player_transform.translation.distance(pickup_transform.translation) < 2.5 {
                     pickup_event_writer.send(PickupEvent {
                         entity,
                         pickup_type: pickup.pickup_type
@@ -248,5 +258,22 @@ fn animate_pickups(mut pickups: Query<&mut Transform, With<Pickup>>, time: Res<T
         transform.scale = Vec3::splat(
             1.0 + (1.0 / 2.0 * time.seconds_since_startup().sin() as f32).abs(),
         );
+    }
+}
+
+fn handle_remove_pet_pickup_event(
+    mut commands: Commands,
+    mut remove_pet_pickup_event_reader: EventReader<RemovePetPickupEvent>,
+    pickups: Query<(Entity, &Pickup)>,
+) {
+    for _ in remove_pet_pickup_event_reader.iter() {
+        for (entity, pickup) in pickups.iter() {
+            match pickup.pickup_type {
+                PickupType::Pet(_) => {
+                    commands.get_or_spawn(entity).despawn_recursive();
+                },
+                _ => ()
+            }
+        }
     }
 }

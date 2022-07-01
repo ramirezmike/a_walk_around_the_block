@@ -351,8 +351,6 @@ fn load_new_chunks(
     }
 }
 
-fn cleanup_stale_chunks() {}
-
 pub fn get_random_spot(min_x: f32, max_x: f32, min_z: f32, max_z: f32) -> Vec2 {
     use rand::Rng;
     let mut rng = rand::thread_rng();
