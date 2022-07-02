@@ -128,7 +128,7 @@ pub struct Target {
     pub hit_cooldown: f32,
     pub health: f32,
     pub heading_to: Option::<Vec2>,
-    pub ignore: bool,
+    pub ignore: isize,
 }
 
 impl Target {
@@ -148,7 +148,7 @@ impl Target {
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
                     health: 5.0,
-                    ignore: false,
+                    ignore: 2,
                 }
             },
             TargetType::Worm => {
@@ -163,7 +163,7 @@ impl Target {
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
                     health: 1.0,
-                    ignore: false,
+                    ignore: 1,
                 }
             },
             TargetType::Chip => {
@@ -177,8 +177,8 @@ impl Target {
                     heading_to: None,
                     mind_cooldown: 0.0,
                     hit_cooldown: 0.0,
-                    health: 2.0,
-                    ignore: false,
+                    health: 2.5,
+                    ignore: 1,
                 }
             },
         }
@@ -203,9 +203,13 @@ impl Target {
             TargetType::Person => {
                 match hit_by {
                     bot::PetType::Dog => {
-                        self.ignore = true;
-                        audio.play_sfx(&game_assets.powerup);
-                        TargetHitResponse::ScoreUp(get_happy_dog_msg(), 50, Color::GREEN, standard_time, false)
+                        self.ignore -= 1 * (game_state.game_speed as isize);
+                        if self.ignore <= 0 {
+                            audio.play_sfx(&game_assets.powerup);
+                            TargetHitResponse::ScoreUp(get_happy_dog_msg(), 50, Color::GREEN, standard_time, false)
+                        } else {
+                            TargetHitResponse::Nothing
+                        }
                     },
                     bot::PetType::Chicken => {
                         TargetHitResponse::ScoreDown(get_angry_chicken_msg(), 50, Color::RED, standard_time, false)
@@ -378,7 +382,7 @@ fn update_target_minds(
         target.mind_cooldown -= time.delta_seconds();
         target.mind_cooldown = target.mind_cooldown.clamp(-10.0, 30.0);
         target.hit_cooldown -= time.delta_seconds();
-        target.hit_cooldown = target.mind_cooldown.clamp(-10.0, 30.0);
+        target.hit_cooldown = target.hit_cooldown.clamp(-10.0, 30.0);
 
         if let Some(heading_to) = target.heading_to {
             target_move_event_writer.send(TargetMoveEvent {

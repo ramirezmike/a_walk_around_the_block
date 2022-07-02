@@ -108,7 +108,7 @@ fn update_bot_ai(
 
         let seeking_targets = pet.get_targets();
         for (target_entity, target_transform, target) in targets.iter() {
-            if (target.ignore && pet.pet_type == PetType::Dog) || !seeking_targets.contains(&target.target_type) {
+            if (target.ignore <= 0 && pet.pet_type == PetType::Dog) || !seeking_targets.contains(&target.target_type) {
                 continue;
             }
 
@@ -123,10 +123,10 @@ fn update_bot_ai(
             if closest_hit < 1.5 {
                 target_hit_event_writer.send(target::TargetHitEvent { entity: target_entity, hit_by: pet.pet_type });
 
-                // try to keep some distance
-                if closest_hit < 1.0 {
-                    continue;
-                }
+//              // try to keep some distance
+//              if closest_hit < 1.0 {
+//                  continue;
+//              }
             }
 
             let ray_direction = (to - from).normalize();
