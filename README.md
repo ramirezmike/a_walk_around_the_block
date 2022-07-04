@@ -4,6 +4,10 @@ An entry for the [2nd Rusty game jam][jam] following the theme of [this image of
 
 You can play the game [here][itch].
 
+
+https://user-images.githubusercontent.com/1421719/177226574-b8fc57da-490b-4ae4-8652-d31c89992b56.mp4
+
+
 Other submissions for the jam can be seen [here][submissions]
 
 A Walk Around The Block is an isometric singleplayer action game where you try to get the highest score before time runs out. Points can be added or deducted by various actions you or your pets do. Each additional pet you're walking multiplies the number of points you get per yellow orb.
